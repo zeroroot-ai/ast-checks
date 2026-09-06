@@ -1,0 +1,20 @@
+package internal
+
+// legal: `if err == nil` is not the graceful-nil anti-pattern; it's the
+// standard error-handling shape. The matcher's looksLikeError suffix filter
+// excludes this.
+func doWork() error {
+	var err error
+	if err == nil {
+		return nil
+	}
+	return err
+}
+
+// legal: `if cfg == nil` is a bare-ident nil-check — when NilGuard is in
+// ReceiverFieldOnly mode (the default in walkers), this is NOT flagged.
+func parseConfig(cfg interface{}) {
+	if cfg == nil {
+		return
+	}
+}

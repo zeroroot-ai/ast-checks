@@ -1,0 +1,13 @@
+package internal
+
+type Cache struct{}
+
+func defaultCache() *Cache { return &Cache{} }
+
+// illegal: silent fallback substitution.
+func use(c *Cache) {
+	if c == nil {
+		c = defaultCache()
+	}
+	_ = c
+}

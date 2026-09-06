@@ -1,0 +1,8 @@
+package internal
+
+import (
+	_ "github.com/zeroroot-ai/gibson/internal/daemon"
+)
+
+// illegal: import of gibson from inside a package that forbids it (the
+// SDK / ext-authz boundary).

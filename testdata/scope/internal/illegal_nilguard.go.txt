@@ -1,0 +1,15 @@
+package internal
+
+type Server struct {
+	authorizer interface{}
+}
+
+// illegal: receiver-field nil-guard that silently returns nil (the classic
+// graceful-nil shape from ADR-0003).
+func (s *Server) HandleX() error {
+	if s.authorizer == nil {
+		return nil
+	}
+	_ = s.authorizer
+	return nil
+}

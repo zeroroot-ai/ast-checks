@@ -1,0 +1,22 @@
+# Go
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+*.cover
+*.prof
+bin/
+dist/
+.tmp/
+
+# IDE / editor
+.idea/
+.vscode/
+*.swp
+.DS_Store
+
+# Workspaces (per the zeroroot-ai workspace convention)
+.worktrees/

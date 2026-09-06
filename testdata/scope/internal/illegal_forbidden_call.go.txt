@@ -1,0 +1,17 @@
+package internal
+
+import (
+	"context"
+	"time"
+)
+
+// illegal: context.Background() in a request-path function.
+func handle() {
+	ctx := context.Background()
+	_ = ctx
+}
+
+// illegal: time.Now() in production code.
+func stamp() time.Time {
+	return time.Now()
+}

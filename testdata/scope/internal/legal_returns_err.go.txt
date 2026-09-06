@@ -1,0 +1,15 @@
+package internal
+
+import "errors"
+
+// legal: nil-check that returns an error, not nil. Not the graceful-nil shape.
+func (s *Server2) HandleY() error {
+	if s.deps == nil {
+		return errors.New("missing deps")
+	}
+	return nil
+}
+
+type Server2 struct {
+	deps interface{}
+}

@@ -1,0 +1,25 @@
+package internal
+
+// Fixture for HostnameLiteral (ADR-0042 two-plane addressing / deploy#635).
+// External hostname/origin literals are illegal — they must derive from config.
+// Intra-cluster connection addresses are the other plane and are legal here.
+
+const (
+	// illegal: external public origin hardcoded.
+	issuer = "https://auth.zeroroot.ai:30443"
+	// illegal: bare external host.
+	appHost = "app.zeroroot.ai"
+	// illegal: stale rebrand domain.
+	legacy = "app.zero-day.local"
+)
+
+// legal: intra-cluster connection address (the OTHER plane, not denied).
+const daemonAddr = "gibson:50051"
+
+// legal: in-cluster Service FQDN.
+const zitadelSvc = "gibson-zitadel.gibson.svc.cluster.local:8080"
+
+// legal: a value read from config, not a hostname literal.
+func origin(cfg struct{ ExternalOrigin string }) string {
+	return cfg.ExternalOrigin
+}
