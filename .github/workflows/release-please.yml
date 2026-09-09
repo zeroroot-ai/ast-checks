@@ -1,0 +1,38 @@
+name: release-please
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  release-please:
+    name: release-please
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      # release-please PRs authored by github-actions[bot] have their workflow
+      # runs held at action_required, so no check ever reports and the release
+      # stalls with no failure. An App token makes the PR author
+      # zeroday-sdk-fanout[bot], which is not held. The same App token also
+      # fires the `on: push: tags:` triggers that a GITHUB_TOKEN push
+      # suppresses.
+      - name: Mint App token
+        id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
+        with:
+          app-id: ${{ secrets.SDK_FANOUT_APP_ID }}
+          private-key: ${{ secrets.SDK_FANOUT_APP_PRIVATE_KEY }}
+          owner: zeroroot-ai
+          repositories: ast-checks
+
+      - uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5
+        id: release
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
