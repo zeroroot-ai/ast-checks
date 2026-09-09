@@ -24,7 +24,7 @@ make check      # fmt + vet + test-race
 
 ## Gotchas
 
-- **No binary output.** `make build` is a no-op stub (bootstrap state). The library has no `main` package.
+- **No binary output.** `make build` compiles the packages, but the library has no `main` package, so it produces no binary.
 - **Consuming repos pin a version.** Each consumer imports a specific tagged version. A change here requires a new tag + consumer bump PRs via the standard fan-out.
 - **Walker primitives are the contract.** Any rename or signature change to `NilGuard`, `SilentSubstitution`, etc., is a breaking API change requiring a semver minor bump (pre-1.0 per ADR-0019 — bump minor, not major).
 

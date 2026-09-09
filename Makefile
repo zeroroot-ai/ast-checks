@@ -4,7 +4,7 @@
 .PHONY: build test test-race check fmt vet lint
 
 build:
-	@echo "no binary to build in bootstrap state; implementation lands via the corresponding board #16 slice"
+	go build ./...
 
 test:
 	go test ./...

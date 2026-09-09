@@ -4,19 +4,11 @@ Shared Go AST harness for codebase-specific structural invariants. Walker primit
 
 Internal Go module under the zeroroot-ai workspace. See [`zeroroot-ai/.github` → `AGENTS.md`](https://github.com/zeroroot-ai/.github/blob/main/AGENTS.md) for workflow conventions (branching, PRs, releases, agent merge autonomy).
 
-## Status
-
-Bootstrap repo. Initial implementation lands via the corresponding production-readiness slice on board #16. Until then, this README + LICENSE + Makefile contract are the only contents.
-
 ## Install
 
 ```bash
 go get github.com/zeroroot-ai/ast-checks@latest
 ```
-
-## License
-
-[BUSL-1.1](./LICENSE).
 
 ## License and history
 
