@@ -74,11 +74,11 @@ func TestHostnameLiteral(t *testing.T) {
 	matchers := []Matcher{
 		NewHostnameLiteral(
 			"no hardcoded external hostname — derive from global.domain (ADR-0042)",
-			`[a-z0-9-]+\.zeroroot\.ai`,
+			`[a-z0-9-]+\.example\.invalid`,
 			`zero-day\.(ai|local)`,
 		),
 	}
-	// Positive: the three external-origin literals. Negative: gibson:50051,
+	// Positive: the three external-origin literals. Negative: the *.svc address,
 	// the *.svc.cluster.local address, and the config-read are NOT flagged.
 	want := []string{
 		"internal/illegal_hostname_literal.go.txt:9",
