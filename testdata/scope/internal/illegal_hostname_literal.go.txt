@@ -6,18 +6,18 @@ package internal
 
 const (
 	// illegal: external public origin hardcoded.
-	issuer = "https://auth.zeroroot.ai:30443"
+	issuer = "https://auth.example.invalid"
 	// illegal: bare external host.
-	appHost = "app.zeroroot.ai"
+	appHost = "app.example.invalid"
 	// illegal: stale rebrand domain.
 	legacy = "app.zero-day.local"
 )
 
 // legal: intra-cluster connection address (the OTHER plane, not denied).
-const daemonAddr = "gibson:50051"
+const daemonAddr = "daemon.example.svc:50051"
 
 // legal: in-cluster Service FQDN.
-const zitadelSvc = "gibson-zitadel.gibson.svc.cluster.local:8080"
+const idpSvc = "idp.example.svc.cluster.local:8080"
 
 // legal: a value read from config, not a hostname literal.
 func origin(cfg struct{ ExternalOrigin string }) string {
