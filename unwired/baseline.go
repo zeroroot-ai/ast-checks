@@ -61,6 +61,12 @@ func ReadBaseline(path string) (Baseline, error) {
 // as a trailing comment only: a baseline keyed by file and line needs re-pinning
 // every time an unrelated edit shifts a line, which the workspace rule names as
 // a defect in the guard rather than in the code.
+//
+// The `#` lines directly above an entry in the existing file are its reason,
+// and they are written back above the same entry. A baseline is regenerated
+// after every burndown, so a rewrite that dropped the reasons would make every
+// recorded decision a one-run artifact. The reason of an entry that is no
+// longer unread goes with it.
 func WriteBaseline(path string, decls []Decl, res Result) error {
 	keys := make([]string, 0, len(decls))
 	coords := map[string]string{}
@@ -69,6 +75,11 @@ func WriteBaseline(path string, decls []Decl, res Result) error {
 		coords[d.ContentKey()] = d.Coord
 	}
 	sort.Strings(keys)
+
+	reasons, err := readReasons(path)
+	if err != nil {
+		return err
+	}
 
 	var b strings.Builder
 	b.WriteString("# unwired baseline: declarations that production code reads nowhere.\n")
@@ -82,6 +93,10 @@ func WriteBaseline(path string, decls []Decl, res Result) error {
 		time.Now().UTC().Format("2006-01-02"), len(decls), len(res.Decls), res.Packages, res.Files)
 	b.WriteString("\n")
 	for _, k := range keys {
+		for _, line := range reasons[k] {
+			b.WriteString(line)
+			b.WriteString("\n")
+		}
 		fmt.Fprintf(&b, "%s\t# %s\n", k, coords[k])
 	}
 
@@ -89,4 +104,56 @@ func WriteBaseline(path string, decls []Decl, res Result) error {
 		return fmt.Errorf("unwired: write %s: %w", path, err)
 	}
 	return nil
+}
+
+// readReasons returns, per entry key, the `#` lines written directly above the
+// entry in an existing baseline. The generated header is the comment block
+// before the first blank line and belongs to no entry. A missing file has no
+// reasons and is not an error here: WriteBaseline creates it.
+func readReasons(path string) (map[string][]string, error) {
+	f, err := os.Open(path) // #nosec G304 -- the path is an operator-supplied flag.
+	if err != nil {
+		if os.IsNotExist(err) {
+			return map[string][]string{}, nil
+		}
+		return nil, fmt.Errorf("unwired: baseline %s: %w", path, err)
+	}
+	defer func() { _ = f.Close() }()
+
+	out := map[string][]string{}
+	var pending []string
+	inHeader := true
+	sc := bufio.NewScanner(f)
+	sc.Buffer(make([]byte, 0, 64*1024), 1024*1024)
+	for sc.Scan() {
+		line := sc.Text()
+		trimmed := strings.TrimSpace(line)
+		switch {
+		case trimmed == "":
+			inHeader = false
+			pending = nil
+		case strings.HasPrefix(trimmed, "#"):
+			if !inHeader {
+				pending = append(pending, line)
+			}
+		default:
+			inHeader = false
+			key := line
+			if i := strings.IndexByte(key, '\t'); i >= 0 {
+				key = key[:i]
+			}
+			if i := strings.IndexByte(key, '#'); i >= 0 {
+				key = key[:i]
+			}
+			key = strings.TrimSpace(key)
+			if len(pending) > 0 {
+				out[key] = pending
+			}
+			pending = nil
+		}
+	}
+	if err := sc.Err(); err != nil {
+		return nil, fmt.Errorf("unwired: read %s: %w", path, err)
+	}
+	return out, nil
 }

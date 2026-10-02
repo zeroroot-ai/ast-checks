@@ -52,8 +52,10 @@ func AssertFindings(t *testing.T, fixturesRoot string, matchers []Matcher, wantC
 }
 
 // AssertEmpty walks a single fixture file with the given matchers and
-// asserts NO findings are produced. Used to verify legal_*.go fixtures
-// don't trip the walker.
+// asserts NO findings are produced.
+//
+// Deprecated: nothing calls it, not even a test in this module (ast-checks#11).
+// Pass nil as wantCoords to AssertFindings instead. It is deleted in v0.6.0.
 func AssertEmpty(t *testing.T, fixturesRoot string, matchers []Matcher) {
 	t.Helper()
 	AssertFindings(t, fixturesRoot, matchers, nil)

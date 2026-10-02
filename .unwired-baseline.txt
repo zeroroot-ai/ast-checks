@@ -6,23 +6,44 @@
 # This file only shrinks. Adding an entry means accepting a declaration
 # nothing reads, so put the reason on a # line above it.
 #
-# measured 2026-10-02: 16 of 122 declarations across 5 packages and 17 files
+# measured 2026-10-02: 14 of 122 declarations across 5 packages and 17 files
 
-field astchecks.Finding.Rule	# finding.go:38
 # Deprecated no-op since v0.5.0 (ast-checks#10): gibson and adk still set it in
 # their WalkOpts literals. Deleted in v0.6.0 after those literals drop it.
 field astchecks.WalkOpts.AllowlistByContent	# walk.go:46
-field unwired.Decl.Exported	# unwired/unwired.go:90
-func astchecks.AssertEmpty	# fixture.go:57
-func astchecks.FormatAllowlistLog	# fixture.go:77
-func astchecks.NewForbiddenCallsite	# matcher.go:218
-func astchecks.NewHostnameLiteral	# matcher.go:487
-func astchecks.NewImportBoundary	# matcher.go:335
-func astchecks.NewMethodReceiverFieldShape	# matcher.go:368
-func astchecks.NewMultiStmtSkip	# matcher.go:179
+# Deprecated, deleted in v0.6.0 (ast-checks#11): nothing calls it, not even a test.
+func astchecks.AssertEmpty	# fixture.go:59
+# Consumer outside this module: gibson cmd/gibson/no_context_background_test.go,
+# cmd/gibson/no_time_now_test.go, adk gibson/cmd/gibson/no_os_exit_in_handler_test.go.
+func astchecks.FormatAllowlistLog	# fixture.go:79
+# Consumer outside this module: gibson cmd/gibson/no_context_background_test.go,
+# cmd/gibson/no_time_now_test.go, adk gibson/cmd/gibson/no_os_exit_in_handler_test.go.
+func astchecks.NewForbiddenCallsite	# matcher.go:230
+# Deprecated, deleted in v0.6.0 (ast-checks#11): the deploy repository that owned
+# the no-hardcoding guard is retired and no other repository adopted the Go half.
+func astchecks.NewHostnameLiteral	# matcher.go:512
+# Consumer outside this module: gibson cmd/ext-authz/check_no_gibson_test.go,
+# sdk check_no_gibson_test.go.
+func astchecks.NewImportBoundary	# matcher.go:351
+# Deprecated, deleted in v0.6.0 (ast-checks#11): no walker composes it, and its
+# Match never fires. NilGuard.ReceiverFieldOnly carries the same predicate.
+func astchecks.NewMethodReceiverFieldShape	# matcher.go:386
+# Deprecated, deleted in v0.6.0 (ast-checks#11): the gibson graceful-nil gate
+# narrowed to the receiver-field NilGuard shape and never took this sibling.
+func astchecks.NewMultiStmtSkip	# matcher.go:191
+# Consumer outside this module: gibson cmd/gibson/no_graceful_nil_test.go.
 func astchecks.NewNilGuard	# matcher.go:53
-func astchecks.NewRequiredCallsite	# matcher.go:275
-func astchecks.NewSilentSubstitution	# matcher.go:128
-func astchecks.RenderFindings	# finding.go:85
-method astchecks.MethodReceiverFieldShape.IsReceiverField	# matcher.go:386
+# Deprecated, deleted in v0.6.0 (ast-checks#11): the audit_emit_on_mutation
+# walker its comment named was never written.
+func astchecks.NewRequiredCallsite	# matcher.go:291
+# Deprecated, deleted in v0.6.0 (ast-checks#11): the gibson graceful-nil gate
+# narrowed to the receiver-field NilGuard shape and never took this sibling.
+func astchecks.NewSilentSubstitution	# matcher.go:134
+# Consumer outside this module: setec internal/no_panic_in_internal_test.go,
+# gibson, sdk and adk gate tests put it in their t.Errorf message.
+func astchecks.RenderFindings	# finding.go:93
+# Deprecated, goes with MethodReceiverFieldShape in v0.6.0 (ast-checks#11).
+method astchecks.MethodReceiverFieldShape.IsReceiverField	# matcher.go:406
+# Satisfies the error interface, which lives outside the analyzed packages, so
+# the scanner cannot credit it. The call site is fmt.Fprintln(os.Stderr, err) in main.
 method main.grewError.Error	# cmd/unwired/main.go:51

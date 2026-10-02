@@ -101,3 +101,21 @@ func TestWalk_RejectsCoordinateKeyedAllowlist(t *testing.T) {
 		t.Fatalf("error must name the key and the migration, got: %v", err)
 	}
 }
+
+// TestRenderFindings_NamesTheRule: the rule text a consumer passes to a matcher
+// is the one line that says what the gate enforces. Before this, Finding.Rule
+// was filled on every finding and rendered nowhere.
+func TestRenderFindings_NamesTheRule(t *testing.T) {
+	got := RenderFindings([]Finding{
+		{Coord: "a.go:1", Snippet: "x", Category: "C", Rule: "rule one"},
+		{Coord: "a.go:2", Snippet: "y", Category: "C", Rule: "rule one"},
+		{Coord: "b.go:3", Snippet: "z", Category: "D", Rule: "rule two"},
+	})
+	want := "rule: rule one\na.go:1: [C] x\na.go:2: [C] y\nrule: rule two\nb.go:3: [D] z"
+	if got != want {
+		t.Fatalf("RenderFindings:\n got %q\nwant %q", got, want)
+	}
+	if RenderFindings(nil) != "" {
+		t.Fatal("no findings must render as the empty string")
+	}
+}
