@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.5.0](https://github.com/zeroroot-ai/ast-checks/compare/v0.4.0...v0.5.0) (2026-10-02)
+
+
+### ⚠ BREAKING CHANGES
+
+* **walk:** an allowlist entry keyed by file:line fails Walk with a validation error. Key entries by Finding.ContentKey().
+
+### Features
+
+* **walk:** content keying is the only allowlist keying ([#15](https://github.com/zeroroot-ai/ast-checks/issues/15)) ([096d4b4](https://github.com/zeroroot-ai/ast-checks/commit/096d4b4caed493fc3c2e5d9443af45bc99fc886a)), closes [#10](https://github.com/zeroroot-ai/ast-checks/issues/10)
+
+
+### Bug Fixes
+
+* **unwired:** the baseline keeps its reasons, and the two unread fields get consumers ([#17](https://github.com/zeroroot-ai/ast-checks/issues/17)) ([96f4c79](https://github.com/zeroroot-ai/ast-checks/commit/96f4c790184d24cd9701a71c63c66521c1ee6b2c))
+
 ## [0.4.0](https://github.com/zeroroot-ai/ast-checks/compare/v0.3.1...v0.4.0) (2026-10-02)
 
 
