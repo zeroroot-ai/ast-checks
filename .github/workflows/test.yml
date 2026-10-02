@@ -46,6 +46,20 @@ jobs:
       - name: lint-unwired
         run: make lint-unwired
 
+      # The whole-program dead-code floor (ADR-0094, .github#160). The org action
+      # is the one implementation. The pin comes from the Makefile, so a
+      # developer's `make lint-deadcode` and this step cannot run different tools.
+      - name: deadcode pin (from the Makefile)
+        id: deadcode
+        run: echo "version=$(make -s deadcode-version)" >> "$GITHUB_OUTPUT"
+      - name: lint-deadcode
+        uses: zeroroot-ai/.github/actions/deadcode-gate@76842051ca980d343fe51b131a8e345db7e2c6b7 # v0.10.0
+        with:
+          version: ${{ steps.deadcode.outputs.version }}
+          allowlist: scripts/deadcode-allow.txt
+      - name: lint-deadcode can fail
+        run: make lint-deadcode-selftest
+
   govulncheck:
     name: govulncheck
     runs-on: ubuntu-latest

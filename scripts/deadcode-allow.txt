@@ -1,0 +1,184 @@
+# deadcode allowlist: functions unreachable from the one main that stay on
+# purpose (ADR-0094, .github#160). The gate is zeroroot-ai/.github's
+# actions/deadcode-gate in CI and `make lint-deadcode` before a push.
+#
+# This module is a published library with one binary. cmd/unwired imports only
+# the unwired package, so deadcode cannot reach the root package from a main and
+# reports all of it. Each entry below names the consumer that keeps it, or the
+# release that deletes it. The consumers are the gate tests in gibson, sdk,
+# setec and adk, measured with a code search on 2026-10-02.
+#
+# Keys are the bare symbol deadcode prints after "unreachable func: ", never a
+# file or a line, so an unrelated edit never needs a re-pin. Generate an entry
+# by running the gate, never by hand. An entry that names nothing FAILS the
+# gate, so this file ratchets both ways. Put the reason on a # line above each
+# entry.
+#
+# measured 2026-10-02 with x/tools v0.50.0: 60 unreachable functions, 60
+# allowlisted. 23 of them are deprecated and go in v0.6.0.
+# Reached only from Walk, which is published API. Walk validates the allowlist
+# before it walks.
+Allowlist.Validate
+# Reached only from Walk, which is published API.
+analyzeFile
+# Deprecated, deleted in v0.6.0 (ast-checks#11): nothing calls it, not even a
+# test. Pass nil as wantCoords to AssertFindings instead.
+AssertEmpty
+# Published fixture helper. This module's matcher_test.go calls it for every
+# walker fixture.
+AssertFindings
+# Reached only from analyzeFile, which Walk calls.
+CoordFromPos
+# Reached only from AssertFindings.
+equalStringSlices
+# Reached only from Walk, which matches the allowlist by this key.
+Finding.ContentKey
+# Reached only from RenderFindings, which is published API.
+Finding.String
+# Matcher method. Walk calls it through Matcher, and Walk is published API
+# (gibson cmd/gibson/no_context_background_test.go, no_time_now_test.go,
+# tenant_client_only_test.go and adk
+# gibson/cmd/gibson/no_os_exit_in_handler_test.go).
+ForbiddenCallsite.Match
+# Matcher method. Walk calls it through Matcher, and Walk is published API
+# (gibson cmd/gibson/no_context_background_test.go, no_time_now_test.go,
+# tenant_client_only_test.go and adk
+# gibson/cmd/gibson/no_os_exit_in_handler_test.go).
+ForbiddenCallsite.Name
+# Matcher method. Walk calls it through Matcher, and Walk is published API
+# (gibson cmd/gibson/no_context_background_test.go, no_time_now_test.go,
+# tenant_client_only_test.go and adk
+# gibson/cmd/gibson/no_os_exit_in_handler_test.go).
+ForbiddenCallsite.Rule
+# Published API. Consumer outside this module: gibson
+# cmd/gibson/no_graceful_nil_test.go, no_context_background_test.go,
+# no_time_now_test.go and adk gibson/cmd/gibson/no_os_exit_in_handler_test.go.
+FormatAllowlistLog
+# Deprecated, deleted in v0.6.0 (ast-checks#11): goes with NewHostnameLiteral.
+HostnameLiteral.Match
+# Deprecated, deleted in v0.6.0 (ast-checks#11): goes with NewHostnameLiteral.
+HostnameLiteral.Name
+# Deprecated, deleted in v0.6.0 (ast-checks#11): goes with NewHostnameLiteral.
+HostnameLiteral.Rule
+# Reached only from SilentSubstitution.Match and itself.
+identName
+# Matcher method. Walk calls it through Matcher, and Walk is published API
+# (gibson cmd/ext-authz/check_no_gibson_test.go and sdk
+# check_no_gibson_test.go).
+ImportBoundary.Match
+# Matcher method. Walk calls it through Matcher, and Walk is published API
+# (gibson cmd/ext-authz/check_no_gibson_test.go and sdk
+# check_no_gibson_test.go).
+ImportBoundary.Name
+# Matcher method. Walk calls it through Matcher, and Walk is published API
+# (gibson cmd/ext-authz/check_no_gibson_test.go and sdk
+# check_no_gibson_test.go).
+ImportBoundary.Rule
+# Reached only from NilGuard.matchCondition and SilentSubstitution.Match.
+isNilIdent
+# Reached only from isNilyReturn.
+isNilOrBoolLiteral
+# Reached only from isSilentReturnBody and MultiStmtSkip.Match.
+isNilyReturn
+# Reached only from NilGuard.Match.
+isSilentReturnBody
+# Reached only from Allowlist.Validate, which Walk calls.
+isURLLike
+# Reached only from Allowlist.Validate, which Walk calls.
+joinLines
+# Reached only from NilGuard.matchSubject.
+looksLikeError
+# Deprecated, deleted in v0.6.0 (ast-checks#11): goes with
+# NewMethodReceiverFieldShape.
+MethodReceiverFieldShape.IsReceiverField
+# Deprecated, deleted in v0.6.0 (ast-checks#11): goes with
+# NewMethodReceiverFieldShape.
+MethodReceiverFieldShape.Match
+# Deprecated, deleted in v0.6.0 (ast-checks#11): goes with
+# NewMethodReceiverFieldShape.
+MethodReceiverFieldShape.Name
+# Deprecated, deleted in v0.6.0 (ast-checks#11): goes with
+# NewMethodReceiverFieldShape.
+MethodReceiverFieldShape.Rule
+# Deprecated, deleted in v0.6.0 (ast-checks#11): goes with NewMultiStmtSkip.
+MultiStmtSkip.Match
+# Deprecated, deleted in v0.6.0 (ast-checks#11): goes with NewMultiStmtSkip.
+MultiStmtSkip.Name
+# Deprecated, deleted in v0.6.0 (ast-checks#11): goes with NewMultiStmtSkip.
+MultiStmtSkip.Rule
+# Published API. Consumer outside this module: gibson
+# cmd/gibson/no_context_background_test.go, no_time_now_test.go,
+# tenant_client_only_test.go and adk
+# gibson/cmd/gibson/no_os_exit_in_handler_test.go.
+NewForbiddenCallsite
+# Deprecated, deleted in v0.6.0 (ast-checks#11): the deploy repository that
+# owned the no-hardcoding guard is retired and no other repository adopted the
+# Go half.
+NewHostnameLiteral
+# Published API. Consumer outside this module: gibson cmd/ext-
+# authz/check_no_gibson_test.go and sdk check_no_gibson_test.go.
+NewImportBoundary
+# Deprecated, deleted in v0.6.0 (ast-checks#11): no walker composes it, and its
+# Match never fires. NilGuard.ReceiverFieldOnly carries the same predicate.
+NewMethodReceiverFieldShape
+# Deprecated, deleted in v0.6.0 (ast-checks#11): the gibson graceful-nil gate
+# narrowed to the receiver-field NilGuard shape and never took this sibling.
+NewMultiStmtSkip
+# Published API. Consumer outside this module: gibson
+# cmd/gibson/no_graceful_nil_test.go.
+NewNilGuard
+# Deprecated, deleted in v0.6.0 (ast-checks#11): the audit_emit_on_mutation
+# walker its comment named was never written.
+NewRequiredCallsite
+# Deprecated, deleted in v0.6.0 (ast-checks#11): the gibson graceful-nil gate
+# narrowed to the receiver-field NilGuard shape and never took this sibling.
+NewSilentSubstitution
+# Published API. Consumer outside this module: every consumer: gibson, sdk,
+# setec and adk gate tests. AssertFindings in this module calls it too.
+NewWalkOpts
+# Matcher method. Walk calls it through Matcher, and Walk is published API
+# (gibson cmd/gibson/no_graceful_nil_test.go).
+NilGuard.Match
+# Reached only from NilGuard.Match and MultiStmtSkip.Match.
+NilGuard.matchCondition
+# Reached only from NilGuard.matchCondition.
+NilGuard.matchSubject
+# Matcher method. Walk calls it through Matcher, and Walk is published API
+# (gibson cmd/gibson/no_graceful_nil_test.go).
+NilGuard.Name
+# Matcher method. Walk calls it through Matcher, and Walk is published API
+# (gibson cmd/gibson/no_graceful_nil_test.go).
+NilGuard.Rule
+# Reached only from Walk, which is published API.
+relativizeCoord
+# Reached only from ForbiddenCallsite.Match.
+renderCall
+# Published API. Consumer outside this module: setec
+# internal/no_panic_in_internal_test.go, and the gibson, sdk and adk gate tests
+# put it in their t.Errorf message.
+RenderFindings
+# Reached only from the Match methods of NilGuard, SilentSubstitution and
+# MultiStmtSkip.
+renderIfHead
+# Deprecated, deleted in v0.6.0 (ast-checks#11): goes with NewRequiredCallsite.
+RequiredCallsite.containsRequired
+# Deprecated, deleted in v0.6.0 (ast-checks#11): goes with NewRequiredCallsite.
+RequiredCallsite.Match
+# Deprecated, deleted in v0.6.0 (ast-checks#11): goes with NewRequiredCallsite.
+RequiredCallsite.Name
+# Deprecated, deleted in v0.6.0 (ast-checks#11): goes with NewRequiredCallsite.
+RequiredCallsite.Rule
+# Deprecated, deleted in v0.6.0 (ast-checks#11): goes with
+# NewSilentSubstitution.
+SilentSubstitution.Match
+# Deprecated, deleted in v0.6.0 (ast-checks#11): goes with
+# NewSilentSubstitution.
+SilentSubstitution.Name
+# Deprecated, deleted in v0.6.0 (ast-checks#11): goes with
+# NewSilentSubstitution.
+SilentSubstitution.Rule
+# Published API. Consumer outside this module: every consumer: gibson, sdk,
+# setec and adk gate tests.
+Walk
+# Reached only from Walk, which is published API.
+WalkOpts.shouldParse
