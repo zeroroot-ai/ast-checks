@@ -55,6 +55,34 @@ Crediting only flows from an interface method that is **actually called**, so an
 interface nobody calls does not make its implementations look live. That case is
 a real finding and stays one.
 
+### What it cannot know: a published module's output types
+
+The scan sees one module. A type this module *produces* for a downstream consumer
+to read is written here and read nowhere here, so it reports `reads=0 writes=N`
+exactly like an abandoned field.
+
+Measured example, `sdk`:
+
+```
+field	agent.QueuedToolResult.Index	agent/harness.go:40	reads=0 writes=20
+field	agent.QueuedToolResult.Output	agent/harness.go:41	reads=0 writes=16
+```
+
+`serve/platform_harness.go` fills these and sends them on a channel, and the doc
+comment beside it tells the caller to use `Index`. They are wired — to a consumer
+outside the module.
+
+There is no way to tell that apart from an abandoned field by reading one module,
+so the judgement belongs in the baseline, on a `#` line above the entry, with the
+consumer named. That is the whole purpose of a baseline that only shrinks: an
+entry is a recorded decision, not a suppression. ADR-0094 says the same thing for
+a different reason — triage as "build the consumer" or "delete the producer",
+never default to deletion.
+
+The same caveat applies to a field a reflective consumer reads: `encoding/json`,
+a database mapper, or a template. Those name the field in a tag or a string, not
+in an identifier, so the scan cannot see the read.
+
 ### Keys
 
 Baseline and exemption entries are `kind name` pairs — never file or line. A
