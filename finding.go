@@ -79,8 +79,9 @@ func CoordFromPos(p token.Position) string {
 	return fmt.Sprintf("%s:%d", p.Filename, p.Line)
 }
 
-// RenderFindings prints findings in stable order. Used by tests and by the
-// `zda-ast` CLI's structured-output mode.
+// RenderFindings prints findings in stable order. Used by fixture tests and by
+// any repo-side guard that needs a stable text block to diff against a
+// baseline.
 func RenderFindings(findings []Finding) string {
 	if len(findings) == 0 {
 		return ""
