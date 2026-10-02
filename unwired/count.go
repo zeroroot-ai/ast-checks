@@ -316,7 +316,7 @@ func (a *analysis) coord(p *packages.Package, pos token.Pos) string {
 //
 // The rule: a concrete method is read as often as the interface method it
 // satisfies, when the receiver type implements an interface declared in the
-// analysed packages that has a method of that name. A type satisfying several
+// analyzed packages that has a method of that name. A type satisfying several
 // such interfaces takes the highest count, because one real consumer is enough
 // to make it wired.
 //

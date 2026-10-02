@@ -19,7 +19,7 @@
 // # What counts as a read
 //
 // A declaration's reads are the uses of its object in non-test, non-generated
-// files of the analysed packages, MINUS the uses that are writes.
+// files of the analyzed packages, MINUS the uses that are writes.
 //
 // The write/read split is the whole point for fields. These three are writes:
 //
@@ -153,7 +153,7 @@ type Opts struct {
 	// tracker exists to surface.
 	TestsAsReads bool
 
-	// IncludeGenerated analyses generated files. Off by default: a generated
+	// IncludeGenerated analyzes generated files. Off by default: a generated
 	// declaration is regenerated, not deleted, so reporting it is noise.
 	IncludeGenerated bool
 
@@ -167,7 +167,7 @@ type Result struct {
 	// counts. Callers filter for Unwired().
 	Decls []Decl
 
-	// Packages is the number of packages analysed, and Files the number of
+	// Packages is the number of packages analyzed, and Files the number of
 	// files. A caller asserts a floor on these: a scan that loaded nothing
 	// reports zero unwired declarations, which reads as success.
 	Packages int
@@ -311,7 +311,7 @@ type analysis struct {
 	fileCount int
 }
 
-// skipFile decides whether a file's contents are analysed at all.
+// skipFile decides whether a file's contents are analyzed at all.
 func (a *analysis) skipFile(p *packages.Package, f *ast.File) (isTest bool, skip bool) {
 	pos := p.Fset.Position(f.Pos())
 	base := filepath.Base(pos.Filename)

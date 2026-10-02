@@ -46,7 +46,7 @@ what a tracker exists to surface. `-tests-as-reads` turns that off.
 ### Methods reached through an interface
 
 A concrete method is credited with the reads of the interface method it
-satisfies, when the receiver implements an interface declared in the analysed
+satisfies, when the receiver implements an interface declared in the analyzed
 packages. Without this every parser, plugin and handler in the estate reports
 zero reads, because the call site names the interface method: measured on
 `gibson-executor`, 35 of 61 findings were this false positive.

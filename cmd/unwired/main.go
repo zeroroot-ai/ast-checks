@@ -68,14 +68,14 @@ func asGrew(err error, target **grewError) bool {
 
 func run() error {
 	var (
-		dir        = flag.String("dir", ".", "module directory to analyse")
+		dir        = flag.String("dir", ".", "module directory to analyze")
 		patterns   = flag.String("patterns", "./...", "comma-separated package patterns")
 		baseline   = flag.String("baseline", "", "baseline file of tolerated unread declarations")
 		write      = flag.Bool("write", false, "rewrite the baseline from this run")
 		kinds      = flag.String("kinds", "", "comma-separated kinds to report (func,method,type,field,const,var); empty means all")
 		unexported = flag.Bool("unexported", false, "report unexported declarations too")
 		testReads  = flag.Bool("tests-as-reads", false, "count uses inside _test.go files as reads")
-		generated  = flag.Bool("generated", false, "analyse generated files too")
+		generated  = flag.Bool("generated", false, "analyze generated files too")
 		listAll    = flag.Bool("all", false, "print every declaration with its counts, not only the unread ones")
 	)
 	flag.Parse()
