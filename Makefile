@@ -1,7 +1,7 @@
 # Per-repo Makefile contract (per zeroroot-ai polyrepo convention).
 # Targets: build / test / test-race / check / image (n/a here).
 
-.PHONY: build test test-race check fmt vet lint
+.PHONY: build test test-race check fmt vet lint lint-unwired lint-unwired-write
 
 build:
 	go build ./...
@@ -23,3 +23,11 @@ lint:
 	golangci-lint run
 
 check: fmt vet test-race
+
+# This repo eats its own output. ast-checks#11 is its tracker, and the baseline
+# below is what `unwired` measures here.
+lint-unwired:
+	go run ./cmd/unwired -dir . -baseline .unwired-baseline.txt
+
+lint-unwired-write:
+	go run ./cmd/unwired -dir . -baseline .unwired-baseline.txt -write
