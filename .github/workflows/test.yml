@@ -41,6 +41,11 @@ jobs:
       - name: test (race)
         run: go test -race ./...
 
+      # This repo eats its own output (ast-checks#11 is its tracker). The
+      # baseline only shrinks, so a new declaration nothing reads fails here.
+      - name: lint-unwired
+        run: make lint-unwired
+
   govulncheck:
     name: govulncheck
     runs-on: ubuntu-latest
