@@ -145,20 +145,23 @@ func TestAllowlist_Validate(t *testing.T) {
 	}{
 		{"empty is valid", Allowlist{}, false, ""},
 		{"valid LEGACY-OPTIONAL", Allowlist{
-			"a.go:1": {Category: CategoryLegacyOptional, Reason: "x", IssueURL: "https://example/issue/1"},
+			"a.go :: if s.x == nil { ... }": {Category: CategoryLegacyOptional, Reason: "x", IssueURL: "https://example/issue/1"},
 		}, false, ""},
 		{"LEGACY-OPTIONAL no IssueURL is fine", Allowlist{
-			"a.go:1": {Category: CategoryLegacyOptional, Reason: "x"},
+			"a.go :: if s.x == nil { ... }": {Category: CategoryLegacyOptional, Reason: "x"},
 		}, false, ""},
 		{"IssueURL must look URL-shaped when present", Allowlist{
-			"a.go:1": {Category: CategoryLegacyOptional, Reason: "x", IssueURL: "not-a-url"},
+			"a.go :: if s.x == nil { ... }": {Category: CategoryLegacyOptional, Reason: "x", IssueURL: "not-a-url"},
 		}, true, "does not look like a URL"},
 		{"unknown category", Allowlist{
-			"a.go:1": {Category: "BOGUS", Reason: "x"},
+			"a.go :: if s.x == nil { ... }": {Category: "BOGUS", Reason: "x"},
 		}, true, "unknown category"},
 		{"empty reason", Allowlist{
-			"a.go:1": {Category: CategoryDefensiveGuard, Reason: ""},
+			"a.go :: if s.x == nil { ... }": {Category: CategoryDefensiveGuard, Reason: ""},
 		}, true, "empty reason"},
+		{"coordinate-shaped key is rejected", Allowlist{
+			"a.go:1": {Category: CategoryDefensiveGuard, Reason: "x"},
+		}, true, "not a content key"},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -173,14 +176,14 @@ func TestAllowlist_Validate(t *testing.T) {
 	}
 }
 
-// TestWalk_FiltersAllowlist proves Walk filters allowlisted coords.
+// TestWalk_FiltersAllowlist proves Walk filters an allowlisted content key.
 func TestWalk_FiltersAllowlist(t *testing.T) {
 	opts := NewWalkOpts()
 	opts.ScopeDirs = []string{fixturesRoot(t)}
 	opts.RepoRoot = fixturesRoot(t)
 	opts.Matchers = []Matcher{NewNilGuard(true)}
 	opts.Allowlist = Allowlist{
-		"internal/illegal_nilguard.go.txt:10": {
+		"internal/illegal_nilguard.go.txt :: if s.authorizer == nil { ... }": {
 			Category: CategoryLegacyOptional,
 			Reason:   "test fixture only",
 			IssueURL: "https://example/issue/1",

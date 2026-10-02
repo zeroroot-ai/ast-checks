@@ -1,0 +1,13 @@
+package internal
+
+type Server struct {
+	authorizer interface{}
+}
+
+func (s *Server) HandleX() error {
+	if s.authorizer == nil {
+		return nil
+	}
+	_ = s.authorizer
+	return nil
+}

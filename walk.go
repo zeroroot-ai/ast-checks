@@ -30,19 +30,19 @@ type WalkOpts struct {
 	// every AST node. Composable per call site.
 	Matchers []Matcher
 
-	// Allowlist contains the known-tolerated findings. Walk filters
-	// findings whose key appears here. Empty allowlist means no findings
-	// are tolerated. The key is Coord ("file:line") by default, or
-	// Finding.ContentKey() ("file :: snippet") when AllowlistByContent is set.
+	// Allowlist contains the known-tolerated findings. Walk filters a
+	// finding whose Finding.ContentKey() ("file :: snippet") appears here.
+	// An empty allowlist tolerates nothing. Keys are content keys, never
+	// "file:line": a coordinate-keyed allowlist needs a re-pin after every
+	// unrelated edit above the guard, and the workspace rule names that as a
+	// defect in the guard. Allowlist.Validate rejects a coordinate-shaped key.
 	Allowlist Allowlist
 
-	// AllowlistByContent makes Walk match the Allowlist by Finding.ContentKey()
-	// (file path + guard snippet) instead of by Coord (file:line). RECOMMENDED:
-	// a content-keyed allowlist is immune to line shifts (license headers, added
-	// imports/comments) and file-internal moves, which otherwise red the gate on
-	// every unrelated edit. Coord-keyed (default) is retained for back-compat
-	// with existing consumers; new gates should set this true and key their
-	// allowlist with ContentKey values. See Finding.ContentKey.
+	// AllowlistByContent does nothing.
+	//
+	// Deprecated: content keying is the only keying since v0.5.0, so Walk
+	// ignores this field. Remove it from the WalkOpts literal. The field is
+	// deleted in v0.6.0.
 	AllowlistByContent bool
 
 	// SkipTestFiles excludes `*_test.go` from the walk. Defaults to true
@@ -69,8 +69,8 @@ func NewWalkOpts() WalkOpts {
 }
 
 // Walk parses every non-skipped `.go` file under opts.ScopeDirs and
-// returns the set of findings whose Coord is NOT in opts.Allowlist. The
-// returned findings are sorted by Coord.
+// returns the set of findings whose Finding.ContentKey() is NOT in
+// opts.Allowlist. The returned findings are sorted by Coord.
 //
 // Walk validates opts.Allowlist before walking; a malformed allowlist
 // produces an error and no findings are returned.
@@ -116,18 +116,13 @@ func Walk(opts WalkOpts) ([]Finding, error) {
 		}
 	}
 
-	// Filter against allowlist using repo-relative coords. The lookup key is
-	// the content key (file + snippet) when AllowlistByContent is set, else the
-	// repo-relative Coord (file:line). Content keying survives line shifts; see
-	// Finding.ContentKey and WalkOpts.AllowlistByContent.
+	// Filter against the allowlist by content key (repo-relative file +
+	// snippet). The key carries no line number, so an unrelated edit above a
+	// guard never changes whether the guard is tolerated. See Finding.ContentKey.
 	var filtered []Finding
 	for _, f := range all {
 		f.Coord = relativizeCoord(f.Coord, opts.RepoRoot)
-		key := f.Coord
-		if opts.AllowlistByContent {
-			key = f.ContentKey()
-		}
-		if _, ok := opts.Allowlist[key]; ok {
+		if _, ok := opts.Allowlist[f.ContentKey()]; ok {
 			continue
 		}
 		filtered = append(filtered, f)
