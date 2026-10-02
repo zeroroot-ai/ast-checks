@@ -104,8 +104,14 @@ func run() error {
 	}
 
 	found := res.Unwired()
-	fmt.Fprintf(os.Stderr, "scanned %d packages, %d files: %d of %d declarations are read nowhere\n",
-		res.Packages, res.Files, len(found), len(res.Decls))
+	exported := 0
+	for _, d := range found {
+		if d.Exported {
+			exported++
+		}
+	}
+	fmt.Fprintf(os.Stderr, "scanned %d packages, %d files: %d of %d declarations are read nowhere (%d exported, %d unexported)\n",
+		res.Packages, res.Files, len(found), len(res.Decls), exported, len(found)-exported)
 
 	if *baseline == "" {
 		for _, d := range found {

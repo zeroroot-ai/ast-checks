@@ -82,16 +82,32 @@ func CoordFromPos(p token.Position) string {
 	return fmt.Sprintf("%s:%d", p.Filename, p.Line)
 }
 
-// RenderFindings prints findings in stable order. Used by fixture tests and by
-// any repo-side guard that needs a stable text block to diff against a
-// baseline.
+// RenderFindings prints findings in stable order, grouped under the rule each
+// one violates. Used by fixture tests and by any repo-side guard that needs a
+// stable text block to put in a failure message. The rule line is the text a
+// consumer passed to the matcher's constructor, so the message says what the
+// rule is and not only where it fired:
+//
+//	rule: no graceful-nil in request paths
+//	internal/daemon/api/server_audit.go:218: [NilGuard] if s.authorizer == nil { ... }
 func RenderFindings(findings []Finding) string {
 	if len(findings) == 0 {
 		return ""
 	}
-	parts := make([]string, 0, len(findings))
+	var rules []string
+	byRule := map[string][]Finding{}
 	for _, f := range findings {
-		parts = append(parts, f.String())
+		if _, seen := byRule[f.Rule]; !seen {
+			rules = append(rules, f.Rule)
+		}
+		byRule[f.Rule] = append(byRule[f.Rule], f)
+	}
+	var parts []string
+	for _, r := range rules {
+		parts = append(parts, "rule: "+r)
+		for _, f := range byRule[r] {
+			parts = append(parts, f.String())
+		}
 	}
 	return strings.Join(parts, "\n")
 }

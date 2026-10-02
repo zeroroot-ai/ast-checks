@@ -4,6 +4,7 @@
 package unwired
 
 import (
+	"os"
 	"path/filepath"
 	"testing"
 )
@@ -375,5 +376,49 @@ func TestAMissingBaselineIsAnError(t *testing.T) {
 	}
 	if !contains(err.Error(), "-write") {
 		t.Errorf("the error does not say how to create it: %v", err)
+	}
+}
+
+// TestWriteBaselineKeepsReasons: a baseline is regenerated after every
+// burndown. A rewrite that dropped the `#` lines above an entry would turn
+// every recorded decision into a one-run artifact, so the reasons must come
+// back above the same entry, and the reason of a resolved entry must go.
+func TestWriteBaselineKeepsReasons(t *testing.T) {
+	res := analyze(t, nil)
+	found := res.Unwired()
+	if len(found) < 2 {
+		t.Fatalf("the fixture has %d unread declarations; this test needs two", len(found))
+	}
+	kept, dropped := found[0], found[1]
+
+	dir := t.TempDir()
+	path := filepath.Join(dir, "baseline.txt")
+	write(t, dir, "baseline.txt", "# generated header line one\n# header line two\n\n"+
+		"# reason for the kept entry\n# second reason line\n"+kept.ContentKey()+"\t# old/coord.go:1\n"+
+		"# reason for the dropped entry\n"+dropped.ContentKey()+"\t# old/coord.go:2\n")
+
+	if err := WriteBaseline(path, found[:1], res); err != nil {
+		t.Fatalf("WriteBaseline: %v", err)
+	}
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read: %v", err)
+	}
+	got := string(raw)
+	if !contains(got, "# reason for the kept entry\n# second reason line\n"+kept.ContentKey()+"\t# ") {
+		t.Errorf("the reason did not come back above its entry:\n%s", got)
+	}
+	if contains(got, "reason for the dropped entry") || contains(got, dropped.ContentKey()) {
+		t.Errorf("a resolved entry or its reason survived the rewrite:\n%s", got)
+	}
+	if contains(got, "generated header line one") {
+		t.Errorf("the old header was carried as a reason:\n%s", got)
+	}
+	tolerated, err := ReadBaseline(path)
+	if err != nil {
+		t.Fatalf("ReadBaseline: %v", err)
+	}
+	if len(tolerated) != 1 || !tolerated[kept.ContentKey()] {
+		t.Errorf("read back %v, want only %q", tolerated, kept.ContentKey())
 	}
 }

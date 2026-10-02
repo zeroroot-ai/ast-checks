@@ -125,6 +125,12 @@ func (m *NilGuard) matchSubject(subject ast.Expr) bool {
 // loud. Less common than the return-nil shape but equally degrading.
 type SilentSubstitution struct{}
 
+// NewSilentSubstitution constructs a SilentSubstitution matcher.
+//
+// Deprecated: no repository in the estate constructs this matcher (ast-checks#11).
+// The gibson graceful-nil gate narrowed to the receiver-field NilGuard shape and never took this sibling.
+// It is deleted in v0.6.0. A consumer that adopts it before then lifts the
+// deprecation.
 func NewSilentSubstitution() *SilentSubstitution { return &SilentSubstitution{} }
 func (m *SilentSubstitution) Name() string       { return "SilentSubstitution" }
 func (m *SilentSubstitution) Rule() string {
@@ -176,6 +182,12 @@ func (m *SilentSubstitution) Match(fset *token.FileSet, node ast.Node, src []byt
 // catches log-and-return shapes.
 type MultiStmtSkip struct{}
 
+// NewMultiStmtSkip constructs a MultiStmtSkip matcher.
+//
+// Deprecated: no repository in the estate constructs this matcher (ast-checks#11).
+// The gibson graceful-nil gate narrowed to the receiver-field NilGuard shape and never took this sibling.
+// It is deleted in v0.6.0. A consumer that adopts it before then lifts the
+// deprecation.
 func NewMultiStmtSkip() *MultiStmtSkip { return &MultiStmtSkip{} }
 func (m *MultiStmtSkip) Name() string  { return "MultiStmtSkip" }
 func (m *MultiStmtSkip) Rule() string  { return "no log-and-return nil-guard in request paths" }
@@ -252,13 +264,11 @@ func (m *ForbiddenCallsite) Match(fset *token.FileSet, node ast.Node, src []byte
 // the function if a required call is missing on every code path.
 //
 // This matcher operates at the function-declaration level, not the
-// statement level — Walk passes it ast.FuncDecl nodes (not nested
-// statements). The walker for slice 3.6's "audit_emit_on_mutation" uses
-// this primitive.
+// statement level: Walk passes it ast.FuncDecl nodes (not nested
+// statements).
 //
-// v0.1.0 ships a simple body-scan (looks for the required selector
-// anywhere in the body, regardless of branching). Full reachability
-// analysis lands in v0.2.
+// It is a simple body-scan: it looks for the required selector anywhere in
+// the body, regardless of branching.
 type RequiredCallsite struct {
 	// Required is the fully-qualified symbol that MUST be called somewhere
 	// in a function's body. e.g. "auditEmitter.Emit".
@@ -272,6 +282,12 @@ type RequiredCallsite struct {
 	RuleDesc string
 }
 
+// NewRequiredCallsite constructs a RequiredCallsite matcher.
+//
+// Deprecated: no repository in the estate constructs this matcher (ast-checks#11).
+// The "audit_emit_on_mutation" walker its comment named was never written.
+// It is deleted in v0.6.0. A consumer that adopts it before then lifts the
+// deprecation.
 func NewRequiredCallsite(rule, required string, filter func(string) bool) *RequiredCallsite {
 	return &RequiredCallsite{Required: required, FunctionFilter: filter, RuleDesc: rule}
 }
@@ -357,14 +373,16 @@ func (m *ImportBoundary) Match(fset *token.FileSet, node ast.Node, src []byte) (
 
 // MethodReceiverFieldShape is a helper that other matchers can compose
 // with to narrow their subject-recognition to method-receiver fields.
-// Standalone it doesn't produce findings on its own — it's a predicate
-// other primitives layer on top of.
-//
-// Exposed publicly because slice 3.6+ walkers will compose it with
-// ForbiddenCallsite (to flag `s.db.Pool` direct access where `s` is the
-// method receiver and `db` is a struct field).
+// Standalone it produces no findings: Match always returns false, so it is
+// a predicate other primitives layer on top of.
 type MethodReceiverFieldShape struct{}
 
+// NewMethodReceiverFieldShape constructs the predicate helper.
+//
+// Deprecated: no repository in the estate constructs this matcher (ast-checks#11).
+// No walker composes it, and a Matcher whose Match never fires is a guard that cannot fail. NilGuard.ReceiverFieldOnly carries the same predicate.
+// It is deleted in v0.6.0. A consumer that adopts it before then lifts the
+// deprecation.
 func NewMethodReceiverFieldShape() *MethodReceiverFieldShape {
 	return &MethodReceiverFieldShape{}
 }
@@ -380,9 +398,11 @@ func (m *MethodReceiverFieldShape) Match(fset *token.FileSet, node ast.Node, src
 	return false, ""
 }
 
-// IsReceiverField returns true when expr is shaped `<ident>.<field>` —
+// IsReceiverField returns true when expr is shaped `<ident>.<field>`,
 // a single-level selector rooted at a bare identifier. The classic
 // receiver-field shape (`s.foo`, `m.db`).
+//
+// Deprecated: goes with MethodReceiverFieldShape in v0.6.0 (ast-checks#11).
 func (m *MethodReceiverFieldShape) IsReceiverField(expr ast.Expr) bool {
 	sel, ok := expr.(*ast.SelectorExpr)
 	if !ok {
@@ -484,6 +504,11 @@ type HostnameLiteral struct {
 // NewHostnameLiteral compiles the supplied patterns. A pattern that fails to
 // compile panics at construction time (these are test-author-supplied
 // constants, so a bad regexp is a programming error, surfaced loudly).
+//
+// Deprecated: no repository in the estate constructs this matcher (ast-checks#11).
+// The deploy repository that owned the no-hardcoding guard is retired and no other repository adopted the Go half.
+// It is deleted in v0.6.0. A consumer that adopts it before then lifts the
+// deprecation.
 func NewHostnameLiteral(rule string, patterns ...string) *HostnameLiteral {
 	compiled := make([]*regexp.Regexp, 0, len(patterns))
 	for _, p := range patterns {
