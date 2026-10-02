@@ -16,8 +16,9 @@ import (
 
 // Finding is one rule violation detected by a Matcher during a Walk.
 //
-// Findings are file-line keyed, matching the in-code allowlist convention.
-// A Finding never carries the raw AST node — once a walker has captured
+// A Finding carries its file:line Coord for the human reading the report, and
+// an allowlist matches it by ContentKey, which carries no line number. A
+// Finding never carries the raw AST node — once a walker has captured
 // position + snippet + category, the AST is no longer needed and downstream
 // code (allowlist comparison, rendering) treats Finding as a plain value.
 type Finding struct {
@@ -45,22 +46,24 @@ func (f Finding) String() string {
 	return fmt.Sprintf("%s: [%s] %s", f.Coord, f.Category, f.Snippet)
 }
 
-// ContentKey returns a line-INDEPENDENT allowlist key for this finding:
-// the file path (Coord with its trailing ":line" removed) joined to the
-// rendered guard Snippet by " :: ", e.g.
+// ContentKey returns the allowlist key for this finding: the file path
+// (Coord with its trailing ":line" removed) joined to the rendered guard
+// Snippet by " :: ", e.g.
 //
 //	"internal/daemon/api/server_audit.go :: if s.authorizer == nil { ... }"
 //
-// Unlike Coord, ContentKey is stable across line shifts — a license-header
-// swap, an added import, or a new comment moves the line but not the key — and
-// across file-internal reordering. An allowlist keyed by ContentKey (opt in via
-// WalkOpts.AllowlistByContent) therefore needs maintenance ONLY when a
-// genuinely new guard appears, not every time an unrelated edit shifts a line.
+// Unlike Coord, ContentKey is stable across line shifts (a license-header
+// swap, an added import, a new comment) and across file-internal reordering.
+// An allowlist therefore needs maintenance only when a new guard appears,
+// never when an unrelated edit shifts a line. Walk matches the allowlist by
+// this key and by nothing else.
 //
 // Trade-off: a key identifies a guard by (file, text), so multiple identical
-// guards in one file share one key — one entry tolerates the pattern wherever
-// it appears in that file. For a known-tolerated-guards allowlist that is an
-// acceptable (often desirable) coarsening.
+// guards in one file share one key, and one entry tolerates the pattern
+// wherever it appears in that file. For a known-tolerated-guards allowlist
+// that is an acceptable coarsening. A consumer that wants the other
+// direction, an entry that no longer matches any finding, re-walks with an
+// empty allowlist and diffs the keys.
 //
 // Callers should pass Coord already repo-relativized (Walk does this before it
 // consults the allowlist), so the file segment of the key is repo-relative.
@@ -69,7 +72,7 @@ func (f Finding) ContentKey() string {
 	if i := strings.LastIndex(file, ":"); i >= 0 {
 		file = file[:i]
 	}
-	return file + " :: " + f.Snippet
+	return file + contentKeySeparator + f.Snippet
 }
 
 // CoordFromPos formats a file:line coordinate from a go/token.Position.

@@ -6,9 +6,12 @@
 # This file only shrinks. Adding an entry means accepting a declaration
 # nothing reads, so put the reason on a # line above it.
 #
-# measured 2026-10-02: 15 of 122 declarations across 5 packages and 17 files
+# measured 2026-10-02: 16 of 122 declarations across 5 packages and 17 files
 
 field astchecks.Finding.Rule	# finding.go:38
+# Deprecated no-op since v0.5.0 (ast-checks#10): gibson and adk still set it in
+# their WalkOpts literals. Deleted in v0.6.0 after those literals drop it.
+field astchecks.WalkOpts.AllowlistByContent	# walk.go:46
 field unwired.Decl.Exported	# unwired/unwired.go:90
 func astchecks.AssertEmpty	# fixture.go:57
 func astchecks.FormatAllowlistLog	# fixture.go:77

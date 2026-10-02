@@ -4,8 +4,8 @@
 package astchecks
 
 import (
-	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -29,64 +29,75 @@ func TestFinding_ContentKey(t *testing.T) {
 	}
 }
 
-// TestWalk_AllowlistByContent_SurvivesLineShift is the regression that justifies
-// content keying: a content-keyed allowlist entry must keep matching after an
-// unrelated edit (here, prepending a license header) shifts the guard's line —
-// the exact failure mode that repeatedly reddened gibson's gate (#1025/#1043/
-// #1044/#1041). A Coord-keyed allowlist would miss after the shift.
-func TestWalk_AllowlistByContent_SurvivesLineShift(t *testing.T) {
-	dir := t.TempDir()
-	path := filepath.Join(dir, "a.go")
-	const body = "package p\n\ntype S struct{ dep *int }\n\n" +
-		"func (s *S) M() error {\n\tif s.dep == nil {\n\t\treturn nil\n\t}\n\treturn nil\n}\n"
-	mustWrite(t, path, body)
+// walkShiftFixture walks one half of the testdata/shift pair with the given
+// allowlist and returns the findings.
+func walkShiftFixture(t *testing.T, half string, al Allowlist) []Finding {
+	t.Helper()
+	root := filepath.Join(fixturesRoot(t), "..", "shift", half)
+	opts := NewWalkOpts()
+	opts.ScopeDirs = []string{filepath.Join(root, "internal")}
+	opts.RepoRoot = root
+	opts.Matchers = []Matcher{NewNilGuard(true)}
+	opts.Allowlist = al
+	got, err := Walk(opts)
+	if err != nil {
+		t.Fatalf("Walk %s: %v", half, err)
+	}
+	return got
+}
 
-	scan := func(byContent bool, al Allowlist) []Finding {
-		t.Helper()
-		got, err := Walk(WalkOpts{
-			ScopeDirs:          []string{dir},
-			RepoRoot:           dir,
-			Matchers:           []Matcher{NewNilGuard(false)},
-			AllowlistByContent: byContent,
-			Allowlist:          al,
-		})
-		if err != nil {
-			t.Fatalf("Walk: %v", err)
-		}
-		return got
+// TestWalk_AllowlistSurvivesUnrelatedEditAbove is the fixture behind the
+// workspace rule that a guard which needs re-pinning after an unrelated edit is
+// a defect in the guard. testdata/shift/before and testdata/shift/after hold
+// the same guard; "after" has a header, a package comment, an import and a new
+// function above it. One allowlist entry must tolerate the guard in both.
+func TestWalk_AllowlistSurvivesUnrelatedEditAbove(t *testing.T) {
+	before := walkShiftFixture(t, "before", nil)
+	after := walkShiftFixture(t, "after", nil)
+	if len(before) != 1 || len(after) != 1 {
+		t.Fatalf("each half must hold exactly one guard, got before=%v after=%v", before, after)
 	}
 
-	// 1. Unfiltered walk discovers the guard; capture its content key.
-	found := scan(false, nil)
-	if len(found) != 1 {
-		t.Fatalf("expected exactly 1 finding, got %d: %v", len(found), found)
+	// The edit moved the guard. If it did not, the test proves nothing.
+	if before[0].Coord == after[0].Coord {
+		t.Fatalf("the unrelated edit did not shift the guard's line: both at %s", before[0].Coord)
 	}
-	key := found[0].ContentKey()
-	al := Allowlist{key: Entry{Category: CategoryDefensiveGuard, Reason: "test"}}
-
-	// 2. Content-keyed allowlist filters it out.
-	if got := scan(true, al); len(got) != 0 {
-		t.Fatalf("content key %q should filter the guard, got %v", key, got)
+	if before[0].ContentKey() != after[0].ContentKey() {
+		t.Fatalf("content key changed across an unrelated edit: %q vs %q",
+			before[0].ContentKey(), after[0].ContentKey())
 	}
 
-	// 3. Shift every line down by prepending a header. The guard is identical;
-	//    its line changed but its ContentKey did not — it must stay filtered.
-	mustWrite(t, path, "// Copyright 2026 Hack the Planet LLC\n// header line 2\n"+body)
-	if got := scan(true, al); len(got) != 0 {
-		t.Fatalf("content-keyed allowlist must survive a line shift, got %v", got)
+	al := Allowlist{before[0].ContentKey(): {Category: CategoryDefensiveGuard, Reason: "fixture"}}
+	if got := walkShiftFixture(t, "before", al); len(got) != 0 {
+		t.Errorf("allowlist entry %q does not tolerate the guard before the edit: %v", before[0].ContentKey(), got)
 	}
-
-	// 4. Control: the OLD Coord-keyed allowlist (file:line from before the shift)
-	//    now MISSES — demonstrating exactly the brittleness content keying fixes.
-	stale := Allowlist{found[0].Coord: Entry{Category: CategoryDefensiveGuard, Reason: "test"}}
-	if got := scan(false, stale); len(got) != 1 {
-		t.Fatalf("Coord-keyed allowlist should have gone stale after the shift (got %d findings)", len(got))
+	if got := walkShiftFixture(t, "after", al); len(got) != 0 {
+		t.Errorf("allowlist entry %q stopped tolerating the guard after an unrelated edit above it: %v",
+			before[0].ContentKey(), got)
 	}
 }
 
-func mustWrite(t *testing.T, path, src string) {
-	t.Helper()
-	if err := os.WriteFile(path, []byte(src), 0o644); err != nil {
-		t.Fatalf("write %s: %v", path, err)
+// TestWalk_RejectsCoordinateKeyedAllowlist is the failing fixture for the
+// guard above: a "file:line" key can never match a finding, so Walk refuses it
+// with the migration named instead of letting the entry go silently inert.
+func TestWalk_RejectsCoordinateKeyedAllowlist(t *testing.T) {
+	before := walkShiftFixture(t, "before", nil)
+	if len(before) != 1 {
+		t.Fatalf("expected one guard, got %v", before)
+	}
+	stale := Allowlist{before[0].Coord: {Category: CategoryDefensiveGuard, Reason: "fixture"}}
+
+	root := filepath.Join(fixturesRoot(t), "..", "shift", "before")
+	opts := NewWalkOpts()
+	opts.ScopeDirs = []string{filepath.Join(root, "internal")}
+	opts.RepoRoot = root
+	opts.Matchers = []Matcher{NewNilGuard(true)}
+	opts.Allowlist = stale
+	_, err := Walk(opts)
+	if err == nil {
+		t.Fatalf("Walk accepted the coordinate-keyed entry %q; it can never match a finding", before[0].Coord)
+	}
+	if !strings.Contains(err.Error(), "not a content key") || !strings.Contains(err.Error(), before[0].Coord) {
+		t.Fatalf("error must name the key and the migration, got: %v", err)
 	}
 }

@@ -1,0 +1,27 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 Zero Root AI
+
+// Package internal is the "after" half of the line-shift fixture pair. The
+// guard below is byte-identical to testdata/shift/before, and everything above
+// it is the unrelated edit: a license header, a package comment, an import, and
+// one new function. The guard moved from line 8 to line 22 and nothing about
+// the guard changed.
+package internal
+
+import "fmt"
+
+type Server struct {
+	authorizer interface{}
+}
+
+func (s *Server) Describe() string {
+	return fmt.Sprintf("server %p", s)
+}
+
+func (s *Server) HandleX() error {
+	if s.authorizer == nil {
+		return nil
+	}
+	_ = s.authorizer
+	return nil
+}

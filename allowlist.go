@@ -63,26 +63,38 @@ type Entry struct {
 	IssueURL string
 }
 
-// Allowlist maps Finding.Coord ("file:line") to an Entry. The walker
-// passes the allowlist to Walk; findings whose Coord is present in the
-// allowlist are filtered out of the failing-findings list, but a Logf
+// Allowlist maps Finding.ContentKey() ("file :: snippet") to an Entry. The
+// walker passes the allowlist to Walk; findings whose content key is present
+// in the allowlist are filtered out of the failing-findings list, but a Logf
 // line is still emitted so the allowlist stays visible in test output.
+//
+// A key never carries a line number. "internal/a/b.go:218" is rejected by
+// Validate; "internal/a/b.go :: if s.dep == nil { ... }" is the shape.
 type Allowlist map[string]Entry
 
-// Validate asserts every entry has a known Category and a non-empty Reason,
-// and that LEGACY-OPTIONAL entries carry an IssueURL. Returns nil on success.
+// contentKeySeparator joins the file and the snippet in Finding.ContentKey.
+const contentKeySeparator = " :: "
+
+// Validate asserts every key is a content key, every entry has a known
+// Category and a non-empty Reason, and every IssueURL is URL-shaped.
+// Returns nil on success.
 //
 // Called by Walk before the walk begins so a malformed allowlist fails the
-// test loudly rather than silently passing through.
+// test loudly rather than silently passing through. A coordinate-shaped key
+// ("file:line") can never match a finding, so it fails here with the
+// migration named instead of going silently inert.
 func (a Allowlist) Validate() error {
 	var errs []string
-	coords := make([]string, 0, len(a))
-	for c := range a {
-		coords = append(coords, c)
+	keys := make([]string, 0, len(a))
+	for k := range a {
+		keys = append(keys, k)
 	}
-	sort.Strings(coords)
-	for _, c := range coords {
+	sort.Strings(keys)
+	for _, c := range keys {
 		e := a[c]
+		if !strings.Contains(c, contentKeySeparator) {
+			errs = append(errs, fmt.Sprintf("%s: not a content key; key the entry by Finding.ContentKey() (\"file :: snippet\"), never by file:line", c))
+		}
 		switch e.Category {
 		case CategoryLegacyOptional, CategoryDefensiveGuard, CategoryReceiverNilGuard, CategoryTestOnly:
 		default:

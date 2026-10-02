@@ -4,6 +4,29 @@ Shared Go AST harness for codebase-specific structural invariants. Walker primit
 
 Internal Go module under the zeroroot-ai workspace. See [`zeroroot-ai/.github` → `AGENTS.md`](https://github.com/zeroroot-ai/.github/blob/main/AGENTS.md) for workflow conventions (branching, PRs, releases, agent merge autonomy).
 
+## Allowlist keys
+
+An allowlist entry is keyed by `Finding.ContentKey()`, which is the repo-relative
+file path and the rendered guard joined by ` :: `:
+
+```go
+allowlist := astchecks.Allowlist{
+	"internal/daemon/api/server_audit.go :: if s.authorizer == nil { ... }": {
+		Category: astchecks.CategoryLegacyOptional,
+		Reason:   "s.authorizer nil-check predates noopAuthorizer deletion",
+	},
+}
+```
+
+The key carries no line number. A license header, an added import or a new
+function above the guard moves the line and leaves the key alone, so the
+allowlist needs an edit only when a guard appears or goes away. The fixture pair
+under `testdata/shift/` proves it: the same entry tolerates the same guard at
+line 8 and at line 22.
+
+`Walk` rejects a `file:line` key with the migration named. Such a key can never
+match a finding, and an entry that matches nothing is a guard that cannot fail.
+
 ## `unwired` — who reads this declaration?
 
 `unwired` counts, per declaration, how many times production code READS it, and
