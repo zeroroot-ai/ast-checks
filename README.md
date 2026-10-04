@@ -122,3 +122,22 @@ go get github.com/zeroroot-ai/ast-checks@latest
 Apache License 2.0. See [LICENSE](LICENSE). Copyright Zero Root AI.
 
 Issue and pull request numbers cited in comments and documents dated before 2026-09-05 refer to the tracker before the history reset, archived offline. They do not resolve on GitHub.
+
+## `crdfields` — does every served CRD field have a consumer?
+
+`crdfields` fails when a field in a `*_types.go` file has no Go read, no
+`+kubebuilder:printcolumn` that names it, and no recorded verdict. A CRD field
+with no reader is a promise the API server makes and the operator does not keep
+(ADR-0094 layer 6). The reads come from `unwired`, so a repo has one answer to
+"is this read".
+
+```bash
+go run github.com/zeroroot-ai/ast-checks/cmd/crdfields -dir . \
+  -types api/v1alpha1 -exempt scripts/crd-field-consumers-exempt.txt
+```
+
+Pass `-types a,b` for a module that serves several api packages, and `-tags`
+for the build tags the shipped image is built with. Each consuming repo wires a
+thin make target of its own and keeps its own exemption file. An exemption is
+`<pkg>.<Type>.<Field> | <#issue or ADR> | <reason>`, and it fails when its field
+is gone or has a consumer again.

@@ -159,6 +159,11 @@ type Opts struct {
 
 	// Kinds limits the declaration kinds reported. Empty means all.
 	Kinds []Kind
+
+	// BuildTags are the build tags the packages load with. An image built with
+	// a tag ships the code behind it, so a gate that judges the shipped code
+	// loads with the same tag. Empty means the default build.
+	BuildTags []string
 }
 
 // Result is what Analyze found.
@@ -219,6 +224,9 @@ func Analyze(opts Opts) (Result, error) {
 		// or counted, per TestsAsReads. Loading without them would make the
 		// option unimplementable.
 		Tests: true,
+	}
+	if len(opts.BuildTags) > 0 {
+		cfg.BuildFlags = []string{"-tags=" + strings.Join(opts.BuildTags, ",")}
 	}
 	pkgs, loadErr := packages.Load(cfg, opts.Patterns...)
 	err = loadErr
