@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.0](https://github.com/zeroroot-ai/ast-checks/compare/v0.5.0...v0.6.0) (2026-10-04)
+
+
+### Features
+
+* **crdfields:** one crd field gate for every repo ([#21](https://github.com/zeroroot-ai/ast-checks/issues/21)) ([499ed02](https://github.com/zeroroot-ai/ast-checks/commit/499ed0267fcf62f7ea2f93131c24d1add933d4ac)), closes [#20](https://github.com/zeroroot-ai/ast-checks/issues/20)
+
 ## [0.5.0](https://github.com/zeroroot-ai/ast-checks/compare/v0.4.0...v0.5.0) (2026-10-02)
 
 
