@@ -25,7 +25,7 @@ make lint-deadcode  # ADR-0094 reachability floor against scripts/deadcode-allow
 
 ## Gotchas
 
-- **One binary, one library.** `cmd/unwired` is the only `main`, and it imports only the `unwired` package. `deadcode` therefore reports the whole root library as unreachable, so every root symbol sits in `scripts/deadcode-allow.txt` with the consumer that keeps it or the release that deletes it. `DEADCODE_VERSION` in the Makefile is the one pin and CI reads it from there.
+- **Two binaries, one library.** `cmd/unwired` and `cmd/crdfields` are the only `main` packages, and they import only the `unwired` and `crdfields` packages. `deadcode` therefore reports the whole root library as unreachable, so every root symbol sits in `scripts/deadcode-allow.txt` with the consumer that keeps it or the release that deletes it. `DEADCODE_VERSION` in the Makefile is the one pin and CI reads it from there.
 - **Consuming repos pin a version.** Each consumer imports a specific tagged version. A change here requires a new tag + consumer bump PRs via the standard fan-out.
 - **Walker primitives are the contract.** Any rename or signature change to `NilGuard`, `SilentSubstitution`, etc., is a breaking API change requiring a semver minor bump (pre-1.0 per ADR-0019 — bump minor, not major).
 
