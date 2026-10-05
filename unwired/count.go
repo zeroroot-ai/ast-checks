@@ -33,7 +33,7 @@ func (a *analysis) countPackage(p *packages.Package) {
 			continue
 		}
 
-		writePositions := writeTargets(f)
+		writePositions, keyPositions := writeTargets(f)
 
 		ast.Inspect(f, func(n ast.Node) bool {
 			id, ok := n.(*ast.Ident)
@@ -50,7 +50,7 @@ func (a *analysis) countPackage(p *packages.Package) {
 			if key == "" {
 				return true
 			}
-			if writePositions[id.Pos()] {
+			if writePositions[id.Pos()] || (keyPositions[id.Pos()] && isField(obj)) {
 				a.writes[key]++
 				return true
 			}
@@ -60,8 +60,16 @@ func (a *analysis) countPackage(p *packages.Package) {
 	}
 }
 
+// isField reports whether obj is a struct field.
+func isField(obj types.Object) bool {
+	v, ok := obj.(*types.Var)
+	return ok && v.IsField()
+}
+
 // writeTargets returns the positions of identifiers that are assignment
-// targets rather than values.
+// targets rather than values, in two sets. An identifier in writes is a
+// write. An identifier in literalKeys is the bare key of a composite literal,
+// and it is a write only when it names a struct field.
 //
 // Three forms are writes:
 //
@@ -79,8 +87,9 @@ func (a *analysis) countPackage(p *packages.Package) {
 // Only the OUTERMOST identifier of a left-hand side is a write. In `x.Field =
 // v`, `Field` is written but `x` is read: you cannot assign through x without
 // consulting it. In `m[k] = v`, `m` and `k` are both read.
-func writeTargets(f *ast.File) map[token.Pos]bool {
+func writeTargets(f *ast.File) (writes, literalKeys map[token.Pos]bool) {
 	out := map[token.Pos]bool{}
+	keys := map[token.Pos]bool{}
 
 	mark := func(e ast.Expr) {
 		switch t := e.(type) {
@@ -115,21 +124,19 @@ func writeTargets(f *ast.File) map[token.Pos]bool {
 				if !ok {
 					continue
 				}
-				// In a struct literal the key names a field. In a map or array
-				// literal the key is a value and IS read, so only mark when the
-				// key is a bare identifier AND the literal is a struct, which
-				// the caller cannot know here — so mark bare identifiers only.
-				// A map literal with a bare identifier key is a constant or
-				// variable read, and marking it would undercount that read.
-				// That is handled in countPackage by checking the object kind.
+				// In a struct literal the key names a field, and that is a
+				// write. In a map or array literal the key is a value: a
+				// constant or a variable, and that is a read. The syntax
+				// does not tell the two apart, so a bare identifier key goes
+				// in its own set and countPackage decides by the object kind.
 				if id, ok := kv.Key.(*ast.Ident); ok {
-					out[id.Pos()] = true
+					keys[id.Pos()] = true
 				}
 			}
 		}
 		return true
 	})
-	return out
+	return out, keys
 }
 
 // collectPackage records every declaration in the package.
