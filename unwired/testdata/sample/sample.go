@@ -100,3 +100,21 @@ func Dispatch(h Handler) int { return h.Handle() }
 
 // WireHandler keeps Impl and Dispatch reachable.
 func WireHandler() int { return Dispatch(Impl{}) }
+
+// KeyConst is read as a map key in a composite literal. reads>=1, writes=0
+const KeyConst = "key"
+
+// KeyVar is read as a map key in a composite literal. reads>=1, writes=0
+var KeyVar = "other"
+
+// IndexConst is read as an array index in a composite literal. reads>=1, writes=0
+const IndexConst = 1
+
+// AssignedOnlyVar is assigned and read nowhere. reads=0, writes>=1
+var AssignedOnlyVar int
+
+// WireLiteralKeys uses each key above once.
+func WireLiteralKeys() (map[string]int, [2]int) {
+	AssignedOnlyVar = 7
+	return map[string]int{KeyConst: 1, KeyVar: 2}, [2]int{IndexConst: 3}
+}

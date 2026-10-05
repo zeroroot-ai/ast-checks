@@ -113,6 +113,35 @@ func TestCompoundAssignmentCountsAsARead(t *testing.T) {
 	}
 }
 
+// TestALiteralKeyThatIsNotAFieldIsARead is the fixture of ast-checks#18. The
+// key of a map or array literal is a value, so a constant or a variable in
+// that position is read. Only a struct field in that position is written.
+func TestALiteralKeyThatIsNotAFieldIsARead(t *testing.T) {
+	got := byName(analyze(t, nil))
+
+	for _, name := range []string{"sample.KeyConst", "sample.KeyVar", "sample.IndexConst"} {
+		d, ok := got[name]
+		if !ok {
+			t.Errorf("the scanner did not report %s", name)
+			continue
+		}
+		if d.Reads == 0 || d.Writes != 0 {
+			t.Errorf("%s: reads = %d, writes = %d; want a read and no write: a literal key that is not a field is a read",
+				name, d.Reads, d.Writes)
+		}
+	}
+
+	// The two controls. A struct field as a literal key is still a write, and
+	// an assignment to a package variable is still a write.
+	if d := got["sample.Config.WrittenOnlyField"]; d.Writes == 0 || d.Reads != 0 {
+		t.Errorf("Config.WrittenOnlyField: reads = %d, writes = %d; want 0 reads and at least 1 write",
+			d.Reads, d.Writes)
+	}
+	if d := got["sample.AssignedOnlyVar"]; d.Reads != 0 || d.Writes == 0 {
+		t.Errorf("AssignedOnlyVar: reads = %d, writes = %d; want 0 reads and at least 1 write", d.Reads, d.Writes)
+	}
+}
+
 // TestFuncsTypesConstsAndVars covers the kinds in one table, so a kind that
 // stops being collected fails rather than silently reporting nothing.
 func TestFuncsTypesConstsAndVars(t *testing.T) {
