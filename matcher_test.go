@@ -68,12 +68,12 @@ func TestForbiddenCallsite(t *testing.T) {
 	AssertFindings(t, fixturesRoot(t), matchers, want)
 }
 
-// TestHostnameLiteral catches hardcoded external hostnames/origins (ADR-0042 /
+// TestHostnameLiteral catches hardcoded external hostnames/origins (ADR-0092 /
 // deploy#635) while leaving intra-cluster connection addresses alone.
 func TestHostnameLiteral(t *testing.T) {
 	matchers := []Matcher{
 		NewHostnameLiteral(
-			"no hardcoded external hostname — derive from global.domain (ADR-0042)",
+			"no hardcoded external hostname — derive from global.domain (ADR-0092)",
 			`[a-z0-9-]+\.example\.invalid`,
 			`zero-day\.(ai|local)`,
 		),

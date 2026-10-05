@@ -1,6 +1,6 @@
 package internal
 
-// Fixture for HostnameLiteral (ADR-0042 two-plane addressing / deploy#635).
+// Fixture for HostnameLiteral (ADR-0092 two-plane addressing / deploy#635).
 // External hostname/origin literals are illegal — they must derive from config.
 // Intra-cluster connection addresses are the other plane and are legal here.
 

@@ -476,7 +476,7 @@ func identName(expr ast.Expr) string {
 // --- HostnameLiteral primitive -----------------------------------------------
 
 // HostnameLiteral flags string literals that hardcode an EXTERNAL hostname or
-// public origin. Per ADR-0042 (two-plane addressing), external-identity values
+// public origin. Per ADR-0092 (two-plane addressing), external-identity values
 // — the public domain, the OIDC issuer, redirect URIs, the Host header on
 // domain-routed upstreams — must derive from a single config source
 // (`global.domain` and the gibson-common helpers), never be typed as a literal
