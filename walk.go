@@ -78,12 +78,38 @@ func NewWalkOpts() WalkOpts {
 // Allowlisted findings are still discovered but not returned; callers
 // who want to log the allowlist (the typical pattern in tests) should
 // iterate over opts.Allowlist after Walk returns.
+//
+// Walk does not say which allowlist entries matched nothing. WalkReport does.
 func Walk(opts WalkOpts) ([]Finding, error) {
+	report, err := WalkReport(opts)
+	return report.Findings, err
+}
+
+// Report is what one walk found: the findings the allowlist does not
+// tolerate, and the allowlist entries that tolerate nothing.
+type Report struct {
+	// Findings are the findings whose content key is not in the allowlist,
+	// sorted by Coord. This is what Walk returns.
+	Findings []Finding
+
+	// StaleAllowlist holds each allowlist key that matched no finding in
+	// this walk, sorted. The guard it tolerated is gone, or its file or text
+	// changed. Such an entry records a decision about nothing, and it is a
+	// ready exemption for the next guard with the same text (ADR-0094).
+	StaleAllowlist []string
+}
+
+// WalkReport is Walk plus the allowlist entries that matched no finding.
+//
+// An entry is stale only against the ScopeDirs and Matchers of this call. A
+// caller that splits one allowlist over several walks must union the used
+// entries itself; one walk over one allowlist is the shape this serves.
+func WalkReport(opts WalkOpts) (Report, error) {
 	if err := opts.Allowlist.Validate(); err != nil {
-		return nil, err
+		return Report{}, err
 	}
 	if len(opts.Matchers) == 0 {
-		return nil, fmt.Errorf("Walk: no matchers configured")
+		return Report{}, fmt.Errorf("Walk: no matchers configured")
 	}
 
 	var all []Finding
@@ -112,7 +138,7 @@ func Walk(opts WalkOpts) ([]Finding, error) {
 			return nil
 		})
 		if err != nil {
-			return nil, err
+			return Report{}, err
 		}
 	}
 
@@ -120,9 +146,11 @@ func Walk(opts WalkOpts) ([]Finding, error) {
 	// snippet). The key carries no line number, so an unrelated edit above a
 	// guard never changes whether the guard is tolerated. See Finding.ContentKey.
 	var filtered []Finding
+	used := map[string]bool{}
 	for _, f := range all {
 		f.Coord = relativizeCoord(f.Coord, opts.RepoRoot)
 		if _, ok := opts.Allowlist[f.ContentKey()]; ok {
+			used[f.ContentKey()] = true
 			continue
 		}
 		filtered = append(filtered, f)
@@ -130,7 +158,15 @@ func Walk(opts WalkOpts) ([]Finding, error) {
 	sort.SliceStable(filtered, func(i, j int) bool {
 		return filtered[i].Coord < filtered[j].Coord
 	})
-	return filtered, nil
+
+	var stale []string
+	for key := range opts.Allowlist {
+		if !used[key] {
+			stale = append(stale, key)
+		}
+	}
+	sort.Strings(stale)
+	return Report{Findings: filtered, StaleAllowlist: stale}, nil
 }
 
 func (o WalkOpts) shouldParse(path string) bool {

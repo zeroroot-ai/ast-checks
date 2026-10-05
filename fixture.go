@@ -51,6 +51,25 @@ func AssertFindings(t *testing.T, fixturesRoot string, matchers []Matcher, wantC
 	return got
 }
 
+// ErrorReporter is the part of *testing.T that AssertNoStaleAllowlist uses.
+type ErrorReporter interface {
+	Helper()
+	Errorf(format string, args ...any)
+}
+
+// AssertNoStaleAllowlist fails the test once for each allowlist entry that
+// matched no finding in the walk that produced report. A consumer's gate test
+// calls it after WalkReport, so an entry cannot outlive the guard it tolerated.
+//
+// t is a *testing.T in a consumer. The parameter is the two methods the helper
+// calls, so this module's own test can prove that the helper fails.
+func AssertNoStaleAllowlist(t ErrorReporter, report Report) {
+	t.Helper()
+	for _, key := range report.StaleAllowlist {
+		t.Errorf("allowlist entry matches no finding, delete it: %q", key)
+	}
+}
+
 // AssertEmpty walks a single fixture file with the given matchers and
 // asserts NO findings are produced.
 //

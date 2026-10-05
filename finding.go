@@ -61,9 +61,8 @@ func (f Finding) String() string {
 // Trade-off: a key identifies a guard by (file, text), so multiple identical
 // guards in one file share one key, and one entry tolerates the pattern
 // wherever it appears in that file. For a known-tolerated-guards allowlist
-// that is an acceptable coarsening. A consumer that wants the other
-// direction, an entry that no longer matches any finding, re-walks with an
-// empty allowlist and diffs the keys.
+// that is an acceptable coarsening. The other direction, an entry that no
+// longer matches any finding, is Report.StaleAllowlist from WalkReport.
 //
 // Callers should pass Coord already repo-relativized (Walk does this before it
 // consults the allowlist), so the file segment of the key is repo-relative.
