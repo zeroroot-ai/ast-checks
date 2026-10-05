@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.0](https://github.com/zeroroot-ai/ast-checks/compare/v0.6.0...v0.7.0) (2026-10-05)
+
+
+### Features
+
+* **walk:** walkreport returns the allowlist entries that match no finding ([#27](https://github.com/zeroroot-ai/ast-checks/issues/27)) ([c1403d4](https://github.com/zeroroot-ai/ast-checks/commit/c1403d4eca714d220dfd36f057401f0256fe31a1)), closes [#24](https://github.com/zeroroot-ai/ast-checks/issues/24)
+
 ## [0.6.0](https://github.com/zeroroot-ai/ast-checks/compare/v0.5.0...v0.6.0) (2026-10-04)
 
 
