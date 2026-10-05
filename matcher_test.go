@@ -23,7 +23,7 @@ func TestNilGuard_ReceiverFieldOnly(t *testing.T) {
 	want := []string{
 		"internal/illegal_nilguard.go.txt:10",
 	}
-	got := AssertFindings(t, fixturesRoot(t), matchers, want)
+	got := assertFindings(t, fixturesRoot(t), matchers, want)
 	if len(got) > 0 && !strings.Contains(got[0].Snippet, "s.authorizer") {
 		t.Errorf("snippet should contain s.authorizer; got %q", got[0].Snippet)
 	}
@@ -37,16 +37,7 @@ func TestNilGuard_BroadMode(t *testing.T) {
 		"internal/illegal_nilguard.go.txt:10",
 		"internal/legal_err_check.go.txt:17",
 	}
-	AssertFindings(t, fixturesRoot(t), matchers, want)
-}
-
-// TestSilentSubstitution catches `if X == nil { X = default() }`.
-func TestSilentSubstitution(t *testing.T) {
-	matchers := []Matcher{NewSilentSubstitution()}
-	want := []string{
-		"internal/illegal_substitution.go.txt:9",
-	}
-	AssertFindings(t, fixturesRoot(t), matchers, want)
+	assertFindings(t, fixturesRoot(t), matchers, want)
 }
 
 // TestForbiddenCallsite catches forbidden symbol invocations.
@@ -65,27 +56,7 @@ func TestForbiddenCallsite(t *testing.T) {
 		"internal/illegal_forbidden_call.go.txt:10",
 		"internal/illegal_forbidden_call.go.txt:16",
 	}
-	AssertFindings(t, fixturesRoot(t), matchers, want)
-}
-
-// TestHostnameLiteral catches hardcoded external hostnames/origins (ADR-0092 /
-// deploy#635) while leaving intra-cluster connection addresses alone.
-func TestHostnameLiteral(t *testing.T) {
-	matchers := []Matcher{
-		NewHostnameLiteral(
-			"no hardcoded external hostname — derive from global.domain (ADR-0092)",
-			`[a-z0-9-]+\.example\.invalid`,
-			`zero-day\.(ai|local)`,
-		),
-	}
-	// Positive: the three external-origin literals. Negative: the *.svc address,
-	// the *.svc.cluster.local address, and the config-read are NOT flagged.
-	want := []string{
-		"internal/illegal_hostname_literal.go.txt:9",
-		"internal/illegal_hostname_literal.go.txt:11",
-		"internal/illegal_hostname_literal.go.txt:13",
-	}
-	AssertFindings(t, fixturesRoot(t), matchers, want)
+	assertFindings(t, fixturesRoot(t), matchers, want)
 }
 
 // TestImportBoundary catches forbidden imports.
@@ -99,40 +70,7 @@ func TestImportBoundary(t *testing.T) {
 	want := []string{
 		"internal/illegal_forbidden_import.go.txt:4",
 	}
-	AssertFindings(t, fixturesRoot(t), matchers, want)
-}
-
-// TestMethodReceiverFieldShape_IsReceiverField unit-tests the predicate
-// helper independent of Match.
-func TestMethodReceiverFieldShape_IsReceiverField(t *testing.T) {
-	src := `package x
-func f() {
-	_ = s.foo
-	_ = pkg.S{}.bar
-	_ = a.b.c
-	_ = cfg
-}`
-	exprs := parseExprs(t, src)
-	helper := NewMethodReceiverFieldShape()
-
-	cases := []struct {
-		name string
-		expr int
-		want bool
-	}{
-		{"single-receiver field", 0, true},
-		{"composite-literal selector", 1, false}, // selector but X is not Ident
-		{"chain selector", 2, false},             // SelectorExpr.X is itself a SelectorExpr
-		{"bare ident", 3, false},
-	}
-	for _, c := range cases {
-		t.Run(c.name, func(t *testing.T) {
-			got := helper.IsReceiverField(exprs[c.expr])
-			if got != c.want {
-				t.Errorf("IsReceiverField: got %v, want %v", got, c.want)
-			}
-		})
-	}
+	assertFindings(t, fixturesRoot(t), matchers, want)
 }
 
 // TestAllowlist_Validate rejects malformed allowlists.
@@ -178,7 +116,7 @@ func TestAllowlist_Validate(t *testing.T) {
 
 // TestWalk_FiltersAllowlist proves Walk filters an allowlisted content key.
 func TestWalk_FiltersAllowlist(t *testing.T) {
-	opts := NewWalkOpts()
+	opts := newWalkOpts()
 	opts.ScopeDirs = []string{fixturesRoot(t)}
 	opts.RepoRoot = fixturesRoot(t)
 	opts.Matchers = []Matcher{NewNilGuard(true)}

@@ -1,6 +1,6 @@
 # ast-checks
 
-Shared Go AST harness for codebase-specific structural invariants. Walker primitives (NilGuard, SilentSubstitution, ForbiddenCallsite, ImportBoundary, MethodReceiverFieldShape), allowlist with tagged categories, fixture-test helpers.
+Shared Go AST harness for codebase-specific structural invariants. Walker primitives (NilGuard, ForbiddenCallsite, ImportBoundary), an allowlist with tagged categories that reports its stale entries, and two analyzers (unwired, crdfields).
 
 Internal Go module under the zeroroot-ai workspace. See [`zeroroot-ai/.github` → `AGENTS.md`](https://github.com/zeroroot-ai/.github/blob/main/AGENTS.md) for workflow conventions (branching, PRs, releases, agent merge autonomy).
 

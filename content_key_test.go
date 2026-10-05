@@ -35,7 +35,7 @@ func TestFinding_ContentKey(t *testing.T) {
 func walkShiftFixture(t *testing.T, half string, al Allowlist) []Finding {
 	t.Helper()
 	root := filepath.Join(fixturesRoot(t), "..", "shift", half)
-	opts := NewWalkOpts()
+	opts := newWalkOpts()
 	opts.ScopeDirs = []string{filepath.Join(root, "internal")}
 	opts.RepoRoot = root
 	opts.Matchers = []Matcher{NewNilGuard(true)}
@@ -89,7 +89,7 @@ func TestWalk_RejectsCoordinateKeyedAllowlist(t *testing.T) {
 	stale := Allowlist{before[0].Coord: {Category: CategoryDefensiveGuard, Reason: "fixture"}}
 
 	root := filepath.Join(fixturesRoot(t), "..", "shift", "before")
-	opts := NewWalkOpts()
+	opts := newWalkOpts()
 	opts.ScopeDirs = []string{filepath.Join(root, "internal")}
 	opts.RepoRoot = root
 	opts.Matchers = []Matcher{NewNilGuard(true)}
@@ -125,7 +125,7 @@ func TestRenderFindings_NamesTheRule(t *testing.T) {
 func walkShiftReport(t *testing.T, half string, al Allowlist) Report {
 	t.Helper()
 	root := filepath.Join(fixturesRoot(t), "..", "shift", half)
-	opts := NewWalkOpts()
+	opts := newWalkOpts()
 	opts.ScopeDirs = []string{filepath.Join(root, "internal")}
 	opts.RepoRoot = root
 	opts.Matchers = []Matcher{NewNilGuard(true)}
