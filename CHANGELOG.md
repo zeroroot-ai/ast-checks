@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.8.0](https://github.com/zeroroot-ai/ast-checks/compare/v0.7.0...v0.8.0) (2026-10-05)
+
+
+### ⚠ BREAKING CHANGES
+
+* **api:** SilentSubstitution, MultiStmtSkip, RequiredCallsite, MethodReceiverFieldShape, HostnameLiteral, AssertEmpty, AssertFindings, NewWalkOpts and WalkOpts.AllowlistByContent are removed.
+
+### Features
+
+* **api:** delete the declarations that were marked for deletion in v0.6.0 ([#30](https://github.com/zeroroot-ai/ast-checks/issues/30)) ([e7bcec3](https://github.com/zeroroot-ai/ast-checks/commit/e7bcec3b72616acd125ee1f2994f2aa783fa7801))
+
 ## [0.7.0](https://github.com/zeroroot-ai/ast-checks/compare/v0.6.0...v0.7.0) (2026-10-05)
 
 
