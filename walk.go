@@ -14,8 +14,9 @@ import (
 	"strings"
 )
 
-// WalkOpts configures a single Walk invocation. Construct via NewWalkOpts
-// for a sensible default set, then customize.
+// WalkOpts configures a single Walk invocation. The zero value walks test
+// files and generated files too; a gate over production code sets
+// SkipTestFiles and SkipGenerated.
 type WalkOpts struct {
 	// ScopeDirs is the set of directories to walk. Files outside this set
 	// are not parsed. Typically `internal/` subdirs of a Go module.
@@ -38,34 +39,17 @@ type WalkOpts struct {
 	// defect in the guard. Allowlist.Validate rejects a coordinate-shaped key.
 	Allowlist Allowlist
 
-	// AllowlistByContent does nothing.
-	//
-	// Deprecated: content keying is the only keying since v0.5.0, so Walk
-	// ignores this field. Remove it from the WalkOpts literal. The field is
-	// deleted in v0.6.0.
-	AllowlistByContent bool
-
-	// SkipTestFiles excludes `*_test.go` from the walk. Defaults to true
-	// in NewWalkOpts. Production code is the analysis target; test files
-	// are scoped out so test fixtures don't leak into findings.
+	// SkipTestFiles excludes `*_test.go` from the walk. Production code is
+	// the usual analysis target, and test fixtures then do not leak into
+	// findings.
 	SkipTestFiles bool
 
 	// SkipGenerated excludes generated `.pb.go` and `zz_generated*.go`
-	// files. Defaults to true in NewWalkOpts.
+	// files.
 	SkipGenerated bool
 
 	// ExtraSkipSuffixes adds extra suffixes (like `.gen.go`) to skip.
 	ExtraSkipSuffixes []string
-}
-
-// NewWalkOpts returns a WalkOpts populated with sensible defaults
-// (SkipTestFiles + SkipGenerated). Set ScopeDirs, RepoRoot, Matchers, and
-// Allowlist before calling Walk.
-func NewWalkOpts() WalkOpts {
-	return WalkOpts{
-		SkipTestFiles: true,
-		SkipGenerated: true,
-	}
 }
 
 // Walk parses every non-skipped `.go` file under opts.ScopeDirs and
