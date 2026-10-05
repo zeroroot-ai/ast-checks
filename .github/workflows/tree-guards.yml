@@ -38,3 +38,9 @@ jobs:
 
   link-check:
     uses: zeroroot-ai/.github/.github/workflows/link-check.yml@f2ca779edd5461be94bdd0a0762657f85317983e # v0.7.2
+
+  # ADR-0089: a permissive repo must not depend on a restrictive repo. Every
+  # go.mod here may require a first-party module only when it is sdk, adk,
+  # setec or ast-checks (zeroroot-ai/.github#202).
+  permissive-floor:
+    uses: zeroroot-ai/.github/.github/workflows/permissive-floor.yml@6815b30d4c26537972433711f0d86ddf73bb6c41 # v0.13.0
