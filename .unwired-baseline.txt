@@ -13,6 +13,11 @@
 field astchecks.WalkOpts.AllowlistByContent	# walk.go:46
 # Deprecated, deleted in v0.6.0 (ast-checks#11): nothing calls it, not even a test.
 func astchecks.AssertEmpty	# fixture.go:59
+# Published helper for a consumer's gate test (ast-checks#24). Only tests call
+# it, here and in a consumer, and this scanner does not count a test as a
+# reader. The first consumer is the gibson nil-guard gate, which moves from
+# Walk to WalkReport with the release that ships this.
+func astchecks.AssertNoStaleAllowlist	# fixture.go:66
 # Consumer outside this module: gibson cmd/gibson/no_context_background_test.go,
 # cmd/gibson/no_time_now_test.go, adk gibson/cmd/gibson/no_os_exit_in_handler_test.go.
 func astchecks.FormatAllowlistLog	# fixture.go:79

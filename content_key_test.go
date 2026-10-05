@@ -4,6 +4,7 @@
 package astchecks
 
 import (
+	"fmt"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -117,5 +118,107 @@ func TestRenderFindings_NamesTheRule(t *testing.T) {
 	}
 	if RenderFindings(nil) != "" {
 		t.Fatal("no findings must render as the empty string")
+	}
+}
+
+// walkShiftReport is walkShiftFixture for WalkReport.
+func walkShiftReport(t *testing.T, half string, al Allowlist) Report {
+	t.Helper()
+	root := filepath.Join(fixturesRoot(t), "..", "shift", half)
+	opts := NewWalkOpts()
+	opts.ScopeDirs = []string{filepath.Join(root, "internal")}
+	opts.RepoRoot = root
+	opts.Matchers = []Matcher{NewNilGuard(true)}
+	opts.Allowlist = al
+	report, err := WalkReport(opts)
+	if err != nil {
+		t.Fatalf("WalkReport %s: %v", half, err)
+	}
+	return report
+}
+
+// TestWalkReport_StaleAllowlist: an allowlist entry that tolerates nothing is
+// reported. Before WalkReport an entry stayed after its guard was deleted from
+// the code, and nothing told which entries were stale (ast-checks#24).
+func TestWalkReport_StaleAllowlist(t *testing.T) {
+	guard := walkShiftFixture(t, "before", nil)
+	if len(guard) != 1 {
+		t.Fatalf("the fixture must hold exactly one guard, got %v", guard)
+	}
+	live := guard[0].ContentKey()
+	entry := Entry{Category: CategoryDefensiveGuard, Reason: "fixture"}
+
+	// The same file, a guard text that is not in it: the guard was deleted or
+	// rewritten.
+	goneText := strings.SplitN(live, contentKeySeparator, 2)[0] + contentKeySeparator + "if s.deleted == nil { ... }"
+	// The same guard text, a file that is not in the walk: the file moved.
+	goneFile := "internal/moved.go" + contentKeySeparator + strings.SplitN(live, contentKeySeparator, 2)[1]
+
+	cases := []struct {
+		name      string
+		allowlist Allowlist
+		wantStale []string
+		wantFound int
+	}{
+		{name: "an entry that matches the guard is not stale",
+			allowlist: Allowlist{live: entry}},
+		{name: "an entry for a guard text that is gone is stale",
+			allowlist: Allowlist{live: entry, goneText: entry}, wantStale: []string{goneText}},
+		{name: "an entry for a file that is gone is stale",
+			allowlist: Allowlist{live: entry, goneFile: entry}, wantStale: []string{goneFile}},
+		{name: "stale entries are sorted and the live guard is still reported when no entry tolerates it",
+			allowlist: Allowlist{goneText: entry, goneFile: entry}, wantStale: []string{goneText, goneFile}, wantFound: 1},
+		{name: "no allowlist has no stale entry", wantFound: 1},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			report := walkShiftReport(t, "before", tc.allowlist)
+			if len(report.Findings) != tc.wantFound {
+				t.Errorf("findings = %v, want %d", report.Findings, tc.wantFound)
+			}
+			if strings.Join(report.StaleAllowlist, "|") != strings.Join(tc.wantStale, "|") {
+				t.Errorf("stale = %q, want %q", report.StaleAllowlist, tc.wantStale)
+			}
+		})
+	}
+}
+
+// TestWalk_AgreesWithWalkReport: Walk is WalkReport without the stale list, so
+// a consumer that stays on Walk sees the findings it saw before.
+func TestWalk_AgreesWithWalkReport(t *testing.T) {
+	findings := walkShiftFixture(t, "before", nil)
+	report := walkShiftReport(t, "before", nil)
+	if len(findings) != 1 || len(report.Findings) != 1 || findings[0] != report.Findings[0] {
+		t.Fatalf("Walk = %v, WalkReport = %v", findings, report.Findings)
+	}
+}
+
+// recorder stands in for *testing.T and keeps what the helper reports.
+type recorder struct{ errors []string }
+
+func (r *recorder) Helper() {}
+func (r *recorder) Errorf(format string, args ...any) {
+	r.errors = append(r.errors, fmt.Sprintf(format, args...))
+}
+
+// TestAssertNoStaleAllowlist: the helper fails once for each stale entry and
+// names it, and it is silent for an allowlist whose every entry is used.
+func TestAssertNoStaleAllowlist(t *testing.T) {
+	guard := walkShiftFixture(t, "before", nil)
+	live := guard[0].ContentKey()
+	entry := Entry{Category: CategoryDefensiveGuard, Reason: "fixture"}
+	stale := "internal/moved.go" + contentKeySeparator + "if s.gone == nil { ... }"
+
+	clean := &recorder{}
+	AssertNoStaleAllowlist(clean, walkShiftReport(t, "before", Allowlist{live: entry}))
+	if len(clean.errors) != 0 {
+		t.Fatalf("a live allowlist was reported: %v", clean.errors)
+	}
+
+	dirty := &recorder{}
+	AssertNoStaleAllowlist(dirty, walkShiftReport(t, "before", Allowlist{live: entry, stale: entry}))
+	if len(dirty.errors) != 1 || !strings.Contains(dirty.errors[0], stale) ||
+		!strings.Contains(dirty.errors[0], "matches no finding") {
+		t.Fatalf("want one error that names %q, got %v", stale, dirty.errors)
 	}
 }

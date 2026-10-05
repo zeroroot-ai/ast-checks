@@ -27,6 +27,10 @@ AssertEmpty
 # Published fixture helper. This module's matcher_test.go calls it for every
 # walker fixture.
 AssertFindings
+# Published fixture helper (ast-checks#24). This module's content_key_test.go
+# calls it. A consumer's gate test calls it after WalkReport, so an allowlist
+# entry cannot outlive the guard it tolerated.
+AssertNoStaleAllowlist
 # Reached only from analyzeFile, which Walk calls.
 CoordFromPos
 # Reached only from AssertFindings.
@@ -182,3 +186,6 @@ SilentSubstitution.Rule
 Walk
 # Reached only from Walk, which is published API.
 WalkOpts.shouldParse
+# Published API (ast-checks#24): Walk plus the allowlist entries that matched
+# no finding. Walk calls it, and this module's content_key_test.go calls it.
+WalkReport
