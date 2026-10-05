@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.8.1](https://github.com/zeroroot-ai/ast-checks/compare/v0.8.0...v0.8.1) (2026-10-05)
+
+
+### Bug Fixes
+
+* **unwired:** a literal key that is not a field is a read ([#32](https://github.com/zeroroot-ai/ast-checks/issues/32)) ([ed4790c](https://github.com/zeroroot-ai/ast-checks/commit/ed4790c6276f81d1e842847d635602b611e7a972))
+
 ## [0.8.0](https://github.com/zeroroot-ai/ast-checks/compare/v0.7.0...v0.8.0) (2026-10-05)
 
 
