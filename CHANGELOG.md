@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.8.2](https://github.com/zeroroot-ai/ast-checks/compare/v0.8.1...v0.8.2) (2026-10-06)
+
+
+### Bug Fixes
+
+* **unwired:** the baseline names only a consumer that exists ([#34](https://github.com/zeroroot-ai/ast-checks/issues/34)) ([a1bdf6e](https://github.com/zeroroot-ai/ast-checks/commit/a1bdf6e9b46a831ec4d0908e7ab27d242a66bbc8))
+
 ## [0.8.1](https://github.com/zeroroot-ai/ast-checks/compare/v0.8.0...v0.8.1) (2026-10-05)
 
 
