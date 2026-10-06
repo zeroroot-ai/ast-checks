@@ -53,7 +53,7 @@ jobs:
         id: deadcode
         run: echo "version=$(make -s deadcode-version)" >> "$GITHUB_OUTPUT"
       - name: lint-deadcode
-        uses: zeroroot-ai/.github/actions/deadcode-gate@76842051ca980d343fe51b131a8e345db7e2c6b7 # v0.10.0
+        uses: zeroroot-ai/.github/actions/deadcode-gate@eaa991cb73a79080f5ce1223b2f5332c47e02c70 # v0.10.5
         with:
           version: ${{ steps.deadcode.outputs.version }}
           allowlist: scripts/deadcode-allow.txt
