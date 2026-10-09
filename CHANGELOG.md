@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.9.0](https://github.com/zeroroot-ai/ast-checks/compare/v0.8.2...v0.9.0) (2026-10-09)
+
+
+### Features
+
+* **unwired:** count the reads that a marshaller, an outside interface and a test-support package make ([#44](https://github.com/zeroroot-ai/ast-checks/issues/44)) ([331deb8](https://github.com/zeroroot-ai/ast-checks/commit/331deb89aefe65dba7b91a965320a7ca0c91ee43))
+
 ## [0.8.2](https://github.com/zeroroot-ai/ast-checks/compare/v0.8.1...v0.8.2) (2026-10-06)
 
 
