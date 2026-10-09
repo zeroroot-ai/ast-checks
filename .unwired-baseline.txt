@@ -6,7 +6,7 @@
 # This file only shrinks. Adding an entry means accepting a declaration
 # nothing reads, so put the reason on a # line above it.
 #
-# measured 2026-10-05: 8 of 116 declarations across 8 packages and 20 files
+# measured 2026-10-09: 7 of 118 declarations across 8 packages and 20 files
 # Published helper for a consumer's gate test (ast-checks#24). Only tests call
 # it, here and in a consumer, and this scanner does not count a test as a
 # reader. The first consumer is the gibson nil-guard gate, which moves from
@@ -25,9 +25,6 @@ func astchecks.NewNilGuard	# matcher.go:53
 # Consumer outside this module: setec internal/no_panic_in_internal_test.go,
 # gibson, sdk and adk gate tests put it in their t.Errorf message.
 func astchecks.RenderFindings	# finding.go:93
-# Satisfies the error interface, which lives outside the analyzed packages, so
-# the scanner cannot credit it. The call site is fmt.Fprintln(os.Stderr, err) in main.
-method main.grewError.Error	# cmd/unwired/main.go:51
 # Consumer outside this module: the gate tests of gibson (cmd/ext-authz,
 # cmd/gibson), setec (internal/no_panic_in_internal_test.go) and adk
 # (gibson/cmd/gibson/no_os_exit_in_handler_test.go). In this module only

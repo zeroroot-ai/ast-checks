@@ -77,6 +77,7 @@ func run() error {
 		testReads  = flag.Bool("tests-as-reads", false, "count uses inside _test.go files as reads")
 		generated  = flag.Bool("generated", false, "analyze generated files too")
 		listAll    = flag.Bool("all", false, "print every declaration with its counts, not only the unread ones")
+		tags       = flag.String("tags", "", "comma-separated build tags to load with, for example e2e, so the files behind a tag count")
 	)
 	flag.Parse()
 
@@ -86,6 +87,7 @@ func run() error {
 		IncludeUnexported: *unexported,
 		TestsAsReads:      *testReads,
 		IncludeGenerated:  *generated,
+		BuildTags:         splitComma(*tags),
 	}
 	for _, k := range splitComma(*kinds) {
 		opts.Kinds = append(opts.Kinds, unwired.Kind(k))
