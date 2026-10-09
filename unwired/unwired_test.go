@@ -542,3 +542,14 @@ func TestAConsumerModuleCountsAsAReader(t *testing.T) {
 		t.Error("a declaration of the consumer was reported")
 	}
 }
+
+// TestTheGeneratedTestMainIsNoProductionImporter: go test generates a main
+// package "<pkg>.test" that imports the package under test. If its imports
+// counted, no package could be test support. support has a test of its own
+// for that reason (support_test.go).
+func TestTheGeneratedTestMainIsNoProductionImporter(t *testing.T) {
+	got := byName(analyze(t, nil))
+	if d := got["support.Helper"]; d.Unwired() {
+		t.Errorf("support.Helper reads=%d: the test main of support counted as a production importer", d.Reads)
+	}
+}

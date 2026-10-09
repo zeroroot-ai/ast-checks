@@ -25,9 +25,16 @@ func (a *analysis) countPackage(p *packages.Package) {
 	if p.TypesInfo == nil {
 		return
 	}
+	// The test main that go test generates for each package (PkgPath
+	// "<pkg>.test") imports the package under test. It is no production
+	// importer, so its imports are not recorded.
+	testMain := strings.HasSuffix(p.PkgPath, ".test")
 	for _, f := range p.Syntax {
 		isTest, skip := a.skipFile(p, f)
 		for _, imp := range f.Imports {
+			if testMain {
+				break
+			}
 			path := strings.Trim(imp.Path.Value, `"`)
 			if isTest {
 				a.testImports[path] = true
@@ -108,19 +115,24 @@ func receiverTypePositions(f *ast.File) map[token.Pos]bool {
 	return out
 }
 
-// countTestReads records the uses in one test file as test reads. Writes are
-// not separated: a test-support package is judged by whether its tests use a
-// declaration at all.
+// countTestReads records the uses in one test file as test reads, for the
+// declarations of OTHER packages. Writes are not separated: a test-support
+// package is judged by whether the tests of its consumers use a declaration
+// at all. Its own tests are no consumer: a helper that only its own test
+// calls is still unread.
 func (a *analysis) countTestReads(p *packages.Package, f *ast.File) {
+	self := strings.TrimSuffix(p.PkgPath, "_test")
 	ast.Inspect(f, func(n ast.Node) bool {
 		id, ok := n.(*ast.Ident)
 		if !ok {
 			return true
 		}
-		if obj := p.TypesInfo.Uses[id]; obj != nil {
-			if key := a.objKey(p, obj); key != "" {
-				a.testReads[key]++
-			}
+		obj := p.TypesInfo.Uses[id]
+		if obj == nil || obj.Pkg() == nil || obj.Pkg().Path() == self {
+			return true
+		}
+		if key := a.objKey(p, obj); key != "" {
+			a.testReads[key]++
 		}
 		return true
 	})
