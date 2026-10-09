@@ -9,6 +9,7 @@ import (
 	"go/token"
 	"go/types"
 	"path/filepath"
+	"reflect"
 	"strings"
 
 	"golang.org/x/tools/go/packages"
@@ -24,16 +25,39 @@ func (a *analysis) countPackage(p *packages.Package) {
 	if p.TypesInfo == nil {
 		return
 	}
+	// The test main that go test generates for each package (PkgPath
+	// "<pkg>.test") imports the package under test. It is no production
+	// importer, so its imports are not recorded.
+	testMain := strings.HasSuffix(p.PkgPath, ".test")
 	for _, f := range p.Syntax {
 		isTest, skip := a.skipFile(p, f)
+		for _, imp := range f.Imports {
+			if testMain {
+				break
+			}
+			path := strings.Trim(imp.Path.Value, `"`)
+			if isTest {
+				a.testImports[path] = true
+			} else {
+				a.prodImports[path] = true
+			}
+		}
 		if skip {
 			continue
 		}
-		if isTest && !a.opts.TestsAsReads {
-			continue
+		if isTest {
+			if a.isConsumer(p) {
+				// A test of a consumer is not a first-party use.
+				continue
+			}
+			a.countTestReads(p, f)
+			if !a.opts.TestsAsReads {
+				continue
+			}
 		}
 
 		writePositions, keyPositions := writeTargets(f)
+		recvPositions := receiverTypePositions(f)
 
 		ast.Inspect(f, func(n ast.Node) bool {
 			id, ok := n.(*ast.Ident)
@@ -54,10 +78,78 @@ func (a *analysis) countPackage(p *packages.Package) {
 				a.writes[key]++
 				return true
 			}
+			if recvPositions[id.Pos()] {
+				a.recvUses[key]++
+			}
 			a.reads[key]++
 			return true
 		})
 	}
+}
+
+// isConsumer reports whether p belongs to a consumer module rather than to
+// the scanned one.
+func (a *analysis) isConsumer(p *packages.Package) bool {
+	return a.mainModule != "" && (p.Module == nil || p.Module.Path != a.mainModule)
+}
+
+// receiverTypePositions returns the positions of the identifiers in the
+// receiver types of the methods of f. A type named only there is used by
+// nothing but its own methods.
+func receiverTypePositions(f *ast.File) map[token.Pos]bool {
+	out := map[token.Pos]bool{}
+	for _, d := range f.Decls {
+		fd, ok := d.(*ast.FuncDecl)
+		if !ok || fd.Recv == nil {
+			continue
+		}
+		for _, field := range fd.Recv.List {
+			ast.Inspect(field.Type, func(n ast.Node) bool {
+				if id, ok := n.(*ast.Ident); ok {
+					out[id.Pos()] = true
+				}
+				return true
+			})
+		}
+	}
+	return out
+}
+
+// countTestReads records the uses in one test file as test reads, for the
+// declarations of OTHER packages. Writes are not separated: a test-support
+// package is judged by whether the tests of its consumers use a declaration
+// at all. Its own tests are no consumer: a helper that only its own test
+// calls is still unread.
+func (a *analysis) countTestReads(p *packages.Package, f *ast.File) {
+	self := strings.TrimSuffix(p.PkgPath, "_test")
+	ast.Inspect(f, func(n ast.Node) bool {
+		id, ok := n.(*ast.Ident)
+		if !ok {
+			return true
+		}
+		obj := p.TypesInfo.Uses[id]
+		if obj == nil || obj.Pkg() == nil || obj.Pkg().Path() == self {
+			return true
+		}
+		if key := a.objKey(p, obj); key != "" {
+			a.testReads[key]++
+		}
+		return true
+	})
+}
+
+// testSupportPackages returns the analyzed packages that test files import
+// and no production file imports. Their declarations exist for tests, so a
+// test read is a real read for them. A package that nothing imports at all is
+// not one: its tests alone do not make it support for anything.
+func (a *analysis) testSupportPackages() map[string]bool {
+	out := map[string]bool{}
+	for path := range a.seen {
+		if a.testImports[path] && !a.prodImports[path] {
+			out[path] = true
+		}
+	}
+	return out
 }
 
 // isField reports whether obj is a struct field.
@@ -141,7 +233,7 @@ func writeTargets(f *ast.File) (writes, literalKeys map[token.Pos]bool) {
 
 // collectPackage records every declaration in the package.
 func (a *analysis) collectPackage(p *packages.Package) {
-	if p.TypesInfo == nil || p.Types == nil {
+	if p.TypesInfo == nil || p.Types == nil || a.isConsumer(p) {
 		return
 	}
 	// Tests: true loads a package several times. Count each distinct package
@@ -257,8 +349,34 @@ func (a *analysis) addFields(p *packages.Package, typeName string, s *ast.TypeSp
 				continue
 			}
 			a.add(p, obj, KindField, typeName+"."+n.Name)
+			if field.Tag != nil && hasSerializationTag(field.Tag.Value) {
+				if key := a.objKey(p, obj); key != "" {
+					a.tagged[key] = true
+				}
+			}
 		}
 	}
+}
+
+// serializationTagKeys are the struct tag keys of the encoders whose reads
+// are reflection: encoding/json, yaml, encoding/xml, protobuf and toml.
+var serializationTagKeys = []string{"json", "yaml", "xml", "protobuf", "toml"}
+
+// hasSerializationTag reports whether a raw struct tag (with its backquotes)
+// names the field for an encoder. A name of "-" tells the encoder to skip the
+// field, so it is not a read.
+func hasSerializationTag(raw string) bool {
+	tag := reflect.StructTag(strings.Trim(raw, "`"))
+	for _, k := range serializationTagKeys {
+		v, ok := tag.Lookup(k)
+		if !ok {
+			continue
+		}
+		if name, _, _ := strings.Cut(v, ","); name != "-" {
+			return true
+		}
+	}
+	return false
 }
 
 // objKey identifies a declaration by where it is declared, so the several
@@ -279,6 +397,9 @@ func (a *analysis) add(p *packages.Package, obj types.Object, kind Kind, name st
 	}
 	if _, dup := a.decls[key]; dup {
 		return
+	}
+	if p.Types != nil {
+		a.declPkg[key] = p.Types.Path()
 	}
 	if !obj.Exported() && !a.opts.IncludeUnexported {
 		return
@@ -358,6 +479,28 @@ func (a *analysis) creditInterfaceMethods(pkgs []*packages.Package) {
 			}
 			ifaces = append(ifaces, iface{typ: it, methodReads: mr})
 		}
+		// An instance of a generic interface of this code (Checker[*T]):
+		// a call names the method of the instance, whose origin is the
+		// declared method, so the reads sit on the origin.
+		if p.TypesInfo == nil {
+			continue
+		}
+		for _, inst := range p.TypesInfo.Instances {
+			named, ok := inst.Type.(*types.Named)
+			if !ok {
+				continue
+			}
+			it, ok := named.Underlying().(*types.Interface)
+			if !ok || it.NumMethods() == 0 {
+				continue
+			}
+			mr := map[string]int{}
+			for i := 0; i < it.NumMethods(); i++ {
+				m := it.Method(i)
+				mr[m.Name()] = a.reads[a.objKey(p, m.Origin())]
+			}
+			ifaces = append(ifaces, iface{typ: it, methodReads: mr})
+		}
 	}
 	if len(ifaces) == 0 {
 		return
@@ -404,4 +547,169 @@ func (a *analysis) creditInterfaceMethods(pkgs []*packages.Package) {
 			}
 		}
 	}
+}
+
+// creditOutsideInterfaces credits methods that satisfy an interface whose
+// callers the scan cannot see: an interface of a dependency (io.Writer, error,
+// http.Handler, reconcile.Reconciler, a gRPC server interface of another
+// module), or one declared in a generated file of this module (a gRPC server
+// interface whose dispatch is generated code).
+//
+// The rule: a method with no read is credited one read when its receiver type
+// implements such an interface with a method of that name, AND production code
+// reads the receiver type itself. The second condition keeps a type that
+// nothing uses from looking alive through io.Writer. The rule over-credits a
+// dead method of a live type that happens to match a method of some outside
+// interface it satisfies; that is the cost of seeing the dispatch at all.
+func (a *analysis) creditOutsideInterfaces(pkgs []*packages.Package) {
+	analyzed := map[string]bool{}
+	for _, p := range pkgs {
+		analyzed[p.PkgPath] = true
+	}
+
+	// The outside interfaces, indexed by method name.
+	byMethod := map[string][]*types.Interface{}
+	addIface := func(it *types.Interface) {
+		for i := 0; i < it.NumMethods(); i++ {
+			name := it.Method(i).Name()
+			byMethod[name] = append(byMethod[name], it)
+		}
+	}
+	seenPkg := map[*types.Package]bool{}
+	packages.Visit(pkgs, nil, func(p *packages.Package) {
+		if p.Types == nil || seenPkg[p.Types] {
+			return
+		}
+		seenPkg[p.Types] = true
+		scope := p.Types.Scope()
+		for _, name := range scope.Names() {
+			obj, ok := scope.Lookup(name).(*types.TypeName)
+			if !ok {
+				continue
+			}
+			it, ok := obj.Type().Underlying().(*types.Interface)
+			if !ok || it.NumMethods() == 0 {
+				continue
+			}
+			outside := !analyzed[p.PkgPath]
+			if !outside && p.Fset != nil {
+				outside = a.generated[p.Fset.Position(obj.Pos()).Filename]
+			}
+			if outside {
+				addIface(it)
+			}
+		}
+	})
+	// An instance of a generic interface (admission.Validator[*T]) is not a
+	// package member either. The analyzed code names each instance it uses,
+	// so the instances it records are the ones to add.
+	for _, p := range pkgs {
+		if p.TypesInfo == nil {
+			continue
+		}
+		for _, inst := range p.TypesInfo.Instances {
+			named, ok := inst.Type.(*types.Named)
+			if !ok {
+				continue
+			}
+			it, ok := named.Underlying().(*types.Interface)
+			if !ok || it.NumMethods() == 0 {
+				continue
+			}
+			origin := named.Origin().Obj()
+			if origin.Pkg() == nil || !analyzed[origin.Pkg().Path()] {
+				addIface(it)
+			}
+		}
+	}
+	// error is a universe type, not a package member.
+	if it, ok := types.Universe.Lookup("error").Type().Underlying().(*types.Interface); ok {
+		addIface(it)
+	}
+	if len(byMethod) == 0 {
+		return
+	}
+
+	for _, p := range pkgs {
+		if p.Types == nil {
+			continue
+		}
+		scope := p.Types.Scope()
+		for _, name := range scope.Names() {
+			obj, ok := scope.Lookup(name).(*types.TypeName)
+			if !ok {
+				continue
+			}
+			named, ok := obj.Type().(*types.Named)
+			typeKey := a.objKey(p, obj)
+			if !ok || a.reads[typeKey]-a.recvUses[typeKey] <= 0 {
+				// Production code names the type nowhere but in the
+				// receivers of its own methods.
+				continue
+			}
+			for _, recv := range []types.Type{named, types.NewPointer(named)} {
+				ms := types.NewMethodSet(recv)
+				for i := 0; i < ms.Len(); i++ {
+					fn, ok := ms.At(i).Obj().(*types.Func)
+					if !ok {
+						continue
+					}
+					key := a.objKey(p, fn)
+					if key == "" || a.reads[key] > 0 || a.viaInterface[key] > 0 {
+						continue
+					}
+					if isErrorsProtocol(recv, fn) {
+						a.viaInterface[key] = 1
+						continue
+					}
+					for _, it := range byMethod[fn.Name()] {
+						if types.Implements(recv, it) {
+							a.viaInterface[key] = 1
+							break
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
+// errorType is the universe error interface.
+var errorType = types.Universe.Lookup("error").Type().Underlying().(*types.Interface)
+
+// isErrorsProtocol reports whether fn is a method of the errors package
+// protocol on an error type: Unwrap() error, Unwrap() []error, Is(error) bool
+// or As(any) bool. errors.Is, errors.As and errors.Unwrap call them through
+// anonymous interfaces, which no package scope declares.
+func isErrorsProtocol(recv types.Type, fn *types.Func) bool {
+	if !types.Implements(recv, errorType) {
+		return false
+	}
+	sig, ok := fn.Type().(*types.Signature)
+	if !ok || sig.Variadic() {
+		return false
+	}
+	params, results := sig.Params(), sig.Results()
+	isErr := func(t types.Type) bool { return types.Identical(t, types.Universe.Lookup("error").Type()) }
+	isBool := func(t types.Type) bool { return types.Identical(t, types.Typ[types.Bool]) }
+	switch fn.Name() {
+	case "Unwrap":
+		if params.Len() != 0 || results.Len() != 1 {
+			return false
+		}
+		r := results.At(0).Type()
+		if sl, ok := r.(*types.Slice); ok {
+			return isErr(sl.Elem())
+		}
+		return isErr(r)
+	case "Is":
+		return params.Len() == 1 && results.Len() == 1 && isErr(params.At(0).Type()) && isBool(results.At(0).Type())
+	case "As":
+		if params.Len() != 1 || results.Len() != 1 || !isBool(results.At(0).Type()) {
+			return false
+		}
+		it, ok := params.At(0).Type().Underlying().(*types.Interface)
+		return ok && it.Empty()
+	}
+	return false
 }

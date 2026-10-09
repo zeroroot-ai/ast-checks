@@ -451,3 +451,105 @@ func TestWriteBaselineKeepsReasons(t *testing.T) {
 		t.Errorf("read back %v, want only %q", tolerated, kept.ContentKey())
 	}
 }
+
+// TestATaggedFieldIsReadByItsEncoder: a marshaller reads a field by its tag,
+// so no Go read names it. Before this rule every wire struct of the estate
+// sat in a baseline with a comment that said so.
+func TestATaggedFieldIsReadByItsEncoder(t *testing.T) {
+	got := byName(analyze(t, nil))
+	if d := got["sample.Wire.Name"]; d.Unwired() || d.ReadsViaReflection == 0 {
+		t.Errorf("Wire.Name: reads=%d via reflection=%d, want a reflection read", d.Reads, d.ReadsViaReflection)
+	}
+	for _, name := range []string{"sample.Wire.Skip", "sample.Wire.Plain"} {
+		if d, ok := got[name]; !ok || !d.Unwired() {
+			t.Errorf("%s: reads=%d, want 0 (the tag \"-\" or no tag is not a read)", name, d.Reads)
+		}
+	}
+}
+
+// TestAMethodOfAnOutsideInterfaceIsWired: fmt.Fprint calls Buf.Write through
+// io.Writer, inside the standard library, where the scan does not look.
+func TestAMethodOfAnOutsideInterfaceIsWired(t *testing.T) {
+	got := byName(analyze(t, nil))
+	if d := got["sample.Buf.Write"]; d.Unwired() || d.ReadsViaInterface == 0 {
+		t.Errorf("Buf.Write: reads=%d via interface=%d, want a read through io.Writer", d.Reads, d.ReadsViaInterface)
+	}
+	if d, ok := got["sample.Buf.Flushh"]; !ok || !d.Unwired() {
+		t.Errorf("Buf.Flushh: reads=%d, want 0: it matches no interface", d.Reads)
+	}
+	if d, ok := got["sample.LostWriter.Write"]; !ok || !d.Unwired() {
+		t.Errorf("LostWriter.Write: reads=%d, want 0: production code never uses LostWriter", d.Reads)
+	}
+}
+
+// TestATestSupportPackageIsJudgedByItsTests: a package that only test files
+// import exists for tests. Its helpers are wired when a test calls them, and an
+// orphan in it is still reported.
+func TestATestSupportPackageIsJudgedByItsTests(t *testing.T) {
+	got := byName(analyze(t, nil))
+	if d := got["support.Helper"]; d.Unwired() || d.ReadsViaTests == 0 {
+		t.Errorf("support.Helper: reads=%d via tests=%d, want a test read", d.Reads, d.ReadsViaTests)
+	}
+	if d, ok := got["support.Orphan"]; !ok || !d.Unwired() {
+		t.Errorf("support.Orphan: reads=%d, want 0", d.Reads)
+	}
+	// The rule is for packages that only tests import. A test read of a
+	// production package is still not a read.
+	if d, ok := got["sample.OnlyTestUsesThis"]; !ok || !d.Unwired() {
+		t.Errorf("sample.OnlyTestUsesThis: reads=%d, want 0", d.Reads)
+	}
+}
+
+// TestAMethodOfAGenericInterfaceInstanceIsWired: the existing interface rule
+// credits a method through an interface of the analyzed code, and an instance
+// of a generic interface is named in Instances, not in a package scope.
+func TestAMethodOfAGenericInterfaceInstanceIsWired(t *testing.T) {
+	got := byName(analyze(t, nil))
+	if d := got["sample.GenericImpl.Check"]; d.Unwired() {
+		t.Errorf("GenericImpl.Check: reads=%d, want a read through Checker[*Wire]", d.Reads)
+	}
+}
+
+// TestTheUnwrapOfAnErrorIsWired: errors.Is calls Unwrap through an anonymous
+// interface that no package declares.
+func TestTheUnwrapOfAnErrorIsWired(t *testing.T) {
+	got := byName(analyze(t, nil))
+	if d := got["sample.WrapErr.Unwrap"]; d.Unwired() {
+		t.Errorf("WrapErr.Unwrap: reads=%d, want a read through the errors protocol", d.Reads)
+	}
+}
+
+// TestAConsumerModuleCountsAsAReader: the production files of a first-party
+// consumer read the API of the scanned module (D77). Its tests do not, and its
+// own declarations are not reported.
+func TestAConsumerModuleCountsAsAReader(t *testing.T) {
+	consumer, err := filepath.Abs("testdata/consumer")
+	if err != nil {
+		t.Fatal(err)
+	}
+	alone := byName(analyze(t, nil))
+	if d := alone["sample.OnlyConsumerUses"]; !d.Unwired() {
+		t.Fatalf("without the consumer, OnlyConsumerUses reads=%d, want 0", d.Reads)
+	}
+	got := byName(analyze(t, func(o *Opts) { o.Consumers = []string{consumer} }))
+	if d := got["sample.OnlyConsumerUses"]; d.Unwired() {
+		t.Errorf("with the consumer, OnlyConsumerUses reads=%d, want a read", d.Reads)
+	}
+	if d := got["sample.OnlyConsumerTestUses"]; !d.Unwired() {
+		t.Errorf("OnlyConsumerTestUses reads=%d, want 0: a consumer test is not a reader", d.Reads)
+	}
+	if _, ok := got["consumer.ConsumerOwn"]; ok {
+		t.Error("a declaration of the consumer was reported")
+	}
+}
+
+// TestTheGeneratedTestMainIsNoProductionImporter: go test generates a main
+// package "<pkg>.test" that imports the package under test. If its imports
+// counted, no package could be test support. support has a test of its own
+// for that reason (support_test.go).
+func TestTheGeneratedTestMainIsNoProductionImporter(t *testing.T) {
+	got := byName(analyze(t, nil))
+	if d := got["support.Helper"]; d.Unwired() {
+		t.Errorf("support.Helper reads=%d: the test main of support counted as a production importer", d.Reads)
+	}
+}

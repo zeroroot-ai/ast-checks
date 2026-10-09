@@ -52,6 +52,7 @@ package unwired
 import (
 	"fmt"
 	"go/ast"
+	"os"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -104,6 +105,19 @@ type Decl struct {
 	// to someone deciding whether a method can go: a direct caller names it, an
 	// interface caller names the contract.
 	ReadsViaInterface int
+
+	// ReadsViaReflection is 1 for a field with a serialization tag (json,
+	// yaml, xml, protobuf, toml) whose name is not "-". A marshaller reads it
+	// by reflection, so no Go read names it. The rule credits the tag, not a
+	// marshal call: a tagged field of a struct that nothing marshals is
+	// credited too, which is the price of seeing wire structs at all.
+	ReadsViaReflection int
+
+	// ReadsViaTests is the part of Reads that came from test files, for a
+	// declaration of a test-support package: a package that test files of
+	// other packages import and that no production file imports. Its only
+	// consumers are tests by design.
+	ReadsViaTests int
 }
 
 // Unwired reports whether nothing reads this declaration.
@@ -115,6 +129,12 @@ func (d Decl) Unwired() bool { return d.Reads == 0 }
 func (d Decl) String() string {
 	if d.ReadsViaInterface > 0 {
 		return fmt.Sprintf("%s\t%s\t%s\treads=%d (%d via interface)", d.Kind, d.Name, d.Coord, d.Reads, d.ReadsViaInterface)
+	}
+	if d.ReadsViaReflection > 0 {
+		return fmt.Sprintf("%s\t%s\t%s\treads=%d (via a serialization tag)", d.Kind, d.Name, d.Coord, d.Reads)
+	}
+	if d.ReadsViaTests > 0 {
+		return fmt.Sprintf("%s\t%s\t%s\treads=%d (%d from tests of a test-support package)", d.Kind, d.Name, d.Coord, d.Reads, d.ReadsViaTests)
 	}
 	if d.Writes > 0 {
 		return fmt.Sprintf("%s\t%s\t%s\treads=%d writes=%d", d.Kind, d.Name, d.Coord, d.Reads, d.Writes)
@@ -164,6 +184,15 @@ type Opts struct {
 	// a tag ships the code behind it, so a gate that judges the shipped code
 	// loads with the same tag. Empty means the default build.
 	BuildTags []string
+
+	// Consumers are directories of other Go modules that use the exported
+	// API of this one, for example the first-party users of a published SDK
+	// (D77: a declaration that no first-party repo reads is dead). Their
+	// production files count as reads. Their declarations are not reported.
+	// The scan loads all of them in one temporary workspace, so a consumer
+	// that does not type-check against this tree fails the scan: the change
+	// breaks a first-party user.
+	Consumers []string
 }
 
 // Result is what Analyze found.
@@ -228,7 +257,19 @@ func Analyze(opts Opts) (Result, error) {
 	if len(opts.BuildTags) > 0 {
 		cfg.BuildFlags = []string{"-tags=" + strings.Join(opts.BuildTags, ",")}
 	}
-	pkgs, loadErr := packages.Load(cfg, opts.Patterns...)
+	patterns := opts.Patterns
+	mainModule := ""
+	if len(opts.Consumers) > 0 {
+		work, consumerPatterns, mod, cleanup, werr := workspaceFor(absDir, opts.Consumers)
+		if werr != nil {
+			return Result{}, werr
+		}
+		defer cleanup()
+		mainModule = mod
+		cfg.Env = append(os.Environ(), "GOWORK="+work)
+		patterns = append(append([]string{}, patterns...), consumerPatterns...)
+	}
+	pkgs, loadErr := packages.Load(cfg, patterns...)
 	err = loadErr
 	if err != nil {
 		return Result{}, fmt.Errorf("unwired: load %v: %w", opts.Patterns, err)
@@ -256,9 +297,17 @@ func Analyze(opts Opts) (Result, error) {
 
 	a := &analysis{
 		opts:         opts,
+		mainModule:   mainModule,
 		reads:        map[string]int{},
 		writes:       map[string]int{},
 		viaInterface: map[string]int{},
+		testReads:    map[string]int{},
+		recvUses:     map[string]int{},
+		tagged:       map[string]bool{},
+		generated:    map[string]bool{},
+		prodImports:  map[string]bool{},
+		testImports:  map[string]bool{},
+		declPkg:      map[string]string{},
 		decls:        map[string]*Decl{},
 		seen:         map[string]bool{},
 	}
@@ -270,9 +319,11 @@ func Analyze(opts Opts) (Result, error) {
 	// interface methods' own read counts, and the concrete methods need the
 	// credit before their Decl is filled in.
 	a.creditInterfaceMethods(pkgs)
+	a.creditOutsideInterfaces(pkgs)
 	for _, p := range pkgs {
 		a.collectPackage(p)
 	}
+	testSupport := a.testSupportPackages()
 
 	out := make([]Decl, 0, len(a.decls))
 	for key, d := range a.decls {
@@ -281,6 +332,14 @@ func Analyze(opts Opts) (Result, error) {
 		if via := a.viaInterface[key]; via > 0 {
 			d.ReadsViaInterface = via
 			d.Reads += via
+		}
+		if a.tagged[key] {
+			d.ReadsViaReflection = 1
+			d.Reads++
+		}
+		if testSupport[a.declPkg[key]] && a.testReads[key] > 0 {
+			d.ReadsViaTests = a.testReads[key]
+			d.Reads += d.ReadsViaTests
 		}
 		out = append(out, *d)
 	}
@@ -303,6 +362,33 @@ type analysis struct {
 	// method read only through an interface is wired, but differently.
 	viaInterface map[string]int
 
+	// testReads counts the reads from test files, always, so a test-support
+	// package can be judged by its real consumers.
+	testReads map[string]int
+
+	// recvUses counts the reads of a type that are the receiver types of its
+	// own methods.
+	recvUses map[string]int
+
+	// tagged holds the keys of fields with a serialization tag.
+	tagged map[string]bool
+
+	// generated holds the file names that skipFile judged generated. An
+	// interface declared there has its callers in generated code too.
+	generated map[string]bool
+
+	// prodImports and testImports are the import paths that the production
+	// files and the test files of the analyzed packages import.
+	prodImports map[string]bool
+	testImports map[string]bool
+
+	// mainModule is the module path of the scanned module when consumers
+	// are loaded beside it, or empty.
+	mainModule string
+
+	// declPkg maps a declaration key to its package path.
+	declPkg map[string]string
+
 	decls map[string]*Decl
 
 	// seen dedupes packages, because Tests: true loads a package up to three
@@ -324,8 +410,11 @@ func (a *analysis) skipFile(p *packages.Package, f *ast.File) (isTest bool, skip
 	pos := p.Fset.Position(f.Pos())
 	base := filepath.Base(pos.Filename)
 	isTest = strings.HasSuffix(base, "_test.go")
-	if !a.opts.IncludeGenerated && isGenerated(base, f) {
-		return isTest, true
+	if isGenerated(base, f) {
+		a.generated[pos.Filename] = true
+		if !a.opts.IncludeGenerated {
+			return isTest, true
+		}
 	}
 	return isTest, false
 }
