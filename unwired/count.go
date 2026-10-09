@@ -39,6 +39,10 @@ func (a *analysis) countPackage(p *packages.Package) {
 			continue
 		}
 		if isTest {
+			if a.isConsumer(p) {
+				// A test of a consumer is not a first-party use.
+				continue
+			}
 			a.countTestReads(p, f)
 			if !a.opts.TestsAsReads {
 				continue
@@ -74,6 +78,12 @@ func (a *analysis) countPackage(p *packages.Package) {
 			return true
 		})
 	}
+}
+
+// isConsumer reports whether p belongs to a consumer module rather than to
+// the scanned one.
+func (a *analysis) isConsumer(p *packages.Package) bool {
+	return a.mainModule != "" && (p.Module == nil || p.Module.Path != a.mainModule)
 }
 
 // receiverTypePositions returns the positions of the identifiers in the
@@ -211,7 +221,7 @@ func writeTargets(f *ast.File) (writes, literalKeys map[token.Pos]bool) {
 
 // collectPackage records every declaration in the package.
 func (a *analysis) collectPackage(p *packages.Package) {
-	if p.TypesInfo == nil || p.Types == nil {
+	if p.TypesInfo == nil || p.Types == nil || a.isConsumer(p) {
 		return
 	}
 	// Tests: true loads a package several times. Count each distinct package

@@ -518,3 +518,27 @@ func TestTheUnwrapOfAnErrorIsWired(t *testing.T) {
 		t.Errorf("WrapErr.Unwrap: reads=%d, want a read through the errors protocol", d.Reads)
 	}
 }
+
+// TestAConsumerModuleCountsAsAReader: the production files of a first-party
+// consumer read the API of the scanned module (D77). Its tests do not, and its
+// own declarations are not reported.
+func TestAConsumerModuleCountsAsAReader(t *testing.T) {
+	consumer, err := filepath.Abs("testdata/consumer")
+	if err != nil {
+		t.Fatal(err)
+	}
+	alone := byName(analyze(t, nil))
+	if d := alone["sample.OnlyConsumerUses"]; !d.Unwired() {
+		t.Fatalf("without the consumer, OnlyConsumerUses reads=%d, want 0", d.Reads)
+	}
+	got := byName(analyze(t, func(o *Opts) { o.Consumers = []string{consumer} }))
+	if d := got["sample.OnlyConsumerUses"]; d.Unwired() {
+		t.Errorf("with the consumer, OnlyConsumerUses reads=%d, want a read", d.Reads)
+	}
+	if d := got["sample.OnlyConsumerTestUses"]; !d.Unwired() {
+		t.Errorf("OnlyConsumerTestUses reads=%d, want 0: a consumer test is not a reader", d.Reads)
+	}
+	if _, ok := got["consumer.ConsumerOwn"]; ok {
+		t.Error("a declaration of the consumer was reported")
+	}
+}

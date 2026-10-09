@@ -78,6 +78,7 @@ func run() error {
 		generated  = flag.Bool("generated", false, "analyze generated files too")
 		listAll    = flag.Bool("all", false, "print every declaration with its counts, not only the unread ones")
 		tags       = flag.String("tags", "", "comma-separated build tags to load with, for example e2e, so the files behind a tag count")
+		consumers  = flag.String("consumers", "", "comma-separated directories of other modules whose production files count as reads (first-party users of this API)")
 	)
 	flag.Parse()
 
@@ -88,6 +89,7 @@ func run() error {
 		TestsAsReads:      *testReads,
 		IncludeGenerated:  *generated,
 		BuildTags:         splitComma(*tags),
+		Consumers:         splitComma(*consumers),
 	}
 	for _, k := range splitComma(*kinds) {
 		opts.Kinds = append(opts.Kinds, unwired.Kind(k))

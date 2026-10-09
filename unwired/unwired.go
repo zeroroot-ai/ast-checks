@@ -52,6 +52,7 @@ package unwired
 import (
 	"fmt"
 	"go/ast"
+	"os"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -183,6 +184,15 @@ type Opts struct {
 	// a tag ships the code behind it, so a gate that judges the shipped code
 	// loads with the same tag. Empty means the default build.
 	BuildTags []string
+
+	// Consumers are directories of other Go modules that use the exported
+	// API of this one, for example the first-party users of a published SDK
+	// (D77: a declaration that no first-party repo reads is dead). Their
+	// production files count as reads. Their declarations are not reported.
+	// The scan loads all of them in one temporary workspace, so a consumer
+	// that does not type-check against this tree fails the scan: the change
+	// breaks a first-party user.
+	Consumers []string
 }
 
 // Result is what Analyze found.
@@ -247,7 +257,19 @@ func Analyze(opts Opts) (Result, error) {
 	if len(opts.BuildTags) > 0 {
 		cfg.BuildFlags = []string{"-tags=" + strings.Join(opts.BuildTags, ",")}
 	}
-	pkgs, loadErr := packages.Load(cfg, opts.Patterns...)
+	patterns := opts.Patterns
+	mainModule := ""
+	if len(opts.Consumers) > 0 {
+		work, consumerPatterns, mod, cleanup, werr := workspaceFor(absDir, opts.Consumers)
+		if werr != nil {
+			return Result{}, werr
+		}
+		defer cleanup()
+		mainModule = mod
+		cfg.Env = append(os.Environ(), "GOWORK="+work)
+		patterns = append(append([]string{}, patterns...), consumerPatterns...)
+	}
+	pkgs, loadErr := packages.Load(cfg, patterns...)
 	err = loadErr
 	if err != nil {
 		return Result{}, fmt.Errorf("unwired: load %v: %w", opts.Patterns, err)
@@ -275,6 +297,7 @@ func Analyze(opts Opts) (Result, error) {
 
 	a := &analysis{
 		opts:         opts,
+		mainModule:   mainModule,
 		reads:        map[string]int{},
 		writes:       map[string]int{},
 		viaInterface: map[string]int{},
@@ -358,6 +381,10 @@ type analysis struct {
 	// files and the test files of the analyzed packages import.
 	prodImports map[string]bool
 	testImports map[string]bool
+
+	// mainModule is the module path of the scanned module when consumers
+	// are loaded beside it, or empty.
+	mainModule string
 
 	// declPkg maps a declaration key to its package path.
 	declPkg map[string]string

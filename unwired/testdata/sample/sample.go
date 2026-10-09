@@ -187,3 +187,11 @@ func (e *WrapErr) Unwrap() error { return e.err }
 
 // IsWrapped asks errors.Is about a WrapErr.
 func IsWrapped(target error) bool { return errors.Is(&WrapErr{}, target) }
+
+// OnlyConsumerUses is called by the consumer module only. Alone: reads=0.
+// With the consumer loaded: reads>=1.
+func OnlyConsumerUses() int { return 3 }
+
+// OnlyConsumerTestUses is called by a test of the consumer only: reads=0
+// either way.
+func OnlyConsumerTestUses() int { return 4 }
