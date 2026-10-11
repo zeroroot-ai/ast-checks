@@ -27,15 +27,21 @@ analyzeFile
 AssertNoStaleAllowlist
 # Reached only from analyzeFile, which Walk calls.
 CoordFromPos
+# Reached only from ForbiddenCallsite.MatchInFile.
+dotImportedPackageNames
 # Reached only from Walk, which matches the allowlist by this key.
 Finding.ContentKey
 # Reached only from RenderFindings, which is published API.
 Finding.String
-# Matcher method. Walk calls it through Matcher, and Walk is published API
-# (gibson cmd/gibson/no_context_background_test.go, no_time_now_test.go,
+# Matcher method. ForbiddenCallsite satisfies Matcher so that a consumer puts
+# it in WalkOpts.Matchers. Walk calls MatchInFile for it (gibson
+# cmd/gibson/no_context_background_test.go, no_time_now_test.go,
 # tenant_client_only_test.go and adk
 # gibson/cmd/gibson/no_os_exit_in_handler_test.go).
 ForbiddenCallsite.Match
+# FileMatcher method. Walk calls it through FileMatcher, and Walk is published
+# API (the consumers of ForbiddenCallsite above).
+ForbiddenCallsite.MatchInFile
 # Matcher method. Walk calls it through Matcher, and Walk is published API
 # (gibson cmd/gibson/no_context_background_test.go, no_time_now_test.go,
 # tenant_client_only_test.go and adk
@@ -62,6 +68,10 @@ ImportBoundary.Name
 # (gibson cmd/ext-authz/check_no_gibson_test.go and sdk
 # check_no_gibson_test.go).
 ImportBoundary.Rule
+# Reached only from ForbiddenCallsite.MatchInFile.
+importedPackageName
+# Reached only from packageNameOfPath.
+isMajorVersion
 # Reached only from NilGuard.matchCondition.
 isNilIdent
 # Reached only from isNilyReturn.
@@ -100,9 +110,11 @@ NilGuard.Name
 # Matcher method. Walk calls it through Matcher, and Walk is published API
 # (gibson cmd/gibson/no_graceful_nil_test.go).
 NilGuard.Rule
+# Reached only from importedPackageName and dotImportedPackageNames.
+packageNameOfPath
 # Reached only from Walk, which is published API.
 relativizeCoord
-# Reached only from ForbiddenCallsite.Match.
+# Reached only from ForbiddenCallsite.MatchInFile.
 renderCall
 # Published API. Consumer outside this module: setec
 # internal/no_panic_in_internal_test.go, and the gibson, sdk and adk gate tests
