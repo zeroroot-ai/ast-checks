@@ -23,11 +23,11 @@ import (
 // code (allowlist comparison, rendering) treats Finding as a plain value.
 type Finding struct {
 	// Coord is the file:line coordinate, repo-relative when produced by Walk.
-	// e.g. "internal/daemon/api/server_audit.go:218".
+	// e.g. "internal/service/handler.go:42".
 	Coord string
 
 	// Snippet is a rendered single-line view of the matching construct.
-	// e.g. "if s.authorizer == nil { ... }".
+	// e.g. "if s.store == nil { ... }".
 	Snippet string
 
 	// Category names the matcher that produced this Finding.
@@ -39,9 +39,9 @@ type Finding struct {
 	Rule string
 }
 
-// String renders the finding for terminal output. Matches the existing
-// gibson `no_graceful_nil_test.go` output shape so failure messages stay
-// agent-readable.
+// String renders the finding for terminal output, as
+// "<coord>: [<category>] <snippet>", so a failure message names the place,
+// the rule kind and the code.
 func (f Finding) String() string {
 	return fmt.Sprintf("%s: [%s] %s", f.Coord, f.Category, f.Snippet)
 }
@@ -50,7 +50,7 @@ func (f Finding) String() string {
 // (Coord with its trailing ":line" removed) joined to the rendered guard
 // Snippet by " :: ", e.g.
 //
-//	"internal/daemon/api/server_audit.go :: if s.authorizer == nil { ... }"
+//	"internal/service/handler.go :: if s.store == nil { ... }"
 //
 // Unlike Coord, ContentKey is stable across line shifts (a license-header
 // swap, an added import, a new comment) and across file-internal reordering.
@@ -88,7 +88,7 @@ func CoordFromPos(p token.Position) string {
 // rule is and not only where it fired:
 //
 //	rule: no graceful-nil in request paths
-//	internal/daemon/api/server_audit.go:218: [NilGuard] if s.authorizer == nil { ... }
+//	internal/service/handler.go:42: [NilGuard] if s.store == nil { ... }
 func RenderFindings(findings []Finding) string {
 	if len(findings) == 0 {
 		return ""

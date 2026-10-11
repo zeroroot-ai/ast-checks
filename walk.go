@@ -19,12 +19,13 @@ import (
 // SkipTestFiles and SkipGenerated.
 type WalkOpts struct {
 	// ScopeDirs is the set of directories to walk. Files outside this set
-	// are not parsed. Typically `internal/` subdirs of a Go module.
+	// are not parsed. Typically `internal/` subdirs of a Go module. Each
+	// entry must be a directory that exists, or Walk returns an error.
 	ScopeDirs []string
 
 	// RepoRoot is used to relativize file paths in Finding.Coord. Set this
 	// to the module root (parent of `go.mod`) so coords look like
-	// "internal/daemon/api/server_audit.go:218".
+	// "internal/service/handler.go:42".
 	RepoRoot string
 
 	// Matchers is the set of Matcher instances Walk evaluates against
@@ -97,10 +98,22 @@ func WalkReport(opts WalkOpts) (Report, error) {
 	}
 
 	var all []Finding
+	if len(opts.ScopeDirs) == 0 {
+		return Report{}, fmt.Errorf("Walk: no scope directories configured")
+	}
+	// A scope directory that does not exist is an error. Skipping it would
+	// return no findings and no error, and a guard that scans nothing can
+	// never fail.
 	for _, dir := range opts.ScopeDirs {
-		if _, err := os.Stat(dir); err != nil {
-			continue
+		info, err := os.Stat(dir)
+		if err != nil {
+			return Report{}, fmt.Errorf("Walk: scope directory %s: %w", dir, err)
 		}
+		if !info.IsDir() {
+			return Report{}, fmt.Errorf("Walk: scope path %s is not a directory", dir)
+		}
+	}
+	for _, dir := range opts.ScopeDirs {
 		err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
 			if err != nil {
 				return err
@@ -196,7 +209,13 @@ func analyzeFile(path string, opts WalkOpts) ([]Finding, error) {
 			return true
 		}
 		for _, m := range opts.Matchers {
-			matched, snippet := m.Match(fset, n, src)
+			var matched bool
+			var snippet string
+			if fm, ok := m.(FileMatcher); ok {
+				matched, snippet = fm.MatchInFile(fset, file, n, src)
+			} else {
+				matched, snippet = m.Match(fset, n, src)
+			}
 			if matched {
 				pos := fset.Position(n.Pos())
 				findings = append(findings, Finding{

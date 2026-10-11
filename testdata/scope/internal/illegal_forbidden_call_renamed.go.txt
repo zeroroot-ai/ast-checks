@@ -1,0 +1,17 @@
+package internal
+
+import (
+	ctx "context"
+	. "time"
+)
+
+// illegal: context.Background() through an import alias.
+func handleRenamed() {
+	c := ctx.Background()
+	_ = c
+}
+
+// illegal: time.Now() through a dot import.
+func stampDot() Time {
+	return Now()
+}

@@ -1,0 +1,15 @@
+package internal
+
+import "strings"
+
+type clock struct{}
+
+func (clock) Now() int { return 0 }
+
+// legal: a local variable named time is not the time package, although the
+// file has an import with no alias.
+func localClock() int {
+	time := clock{}
+	_ = strings.ToUpper("")
+	return time.Now()
+}
