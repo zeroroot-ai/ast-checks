@@ -30,7 +30,6 @@ func AssertNoStaleAllowlist(t ErrorReporter, report Report) {
 
 // FormatAllowlistLog returns a stable string suitable for `t.Logf` so the
 // allowlist stays visible in test output even when no findings are produced.
-// Matches the format used by the existing gibson `no_graceful_nil_test.go`.
 func FormatAllowlistLog(a Allowlist) string {
 	if len(a) == 0 {
 		return ""

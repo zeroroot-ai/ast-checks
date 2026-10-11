@@ -52,11 +52,50 @@ func TestForbiddenCallsite(t *testing.T) {
 			"time.Now",
 		),
 	}
+	// The renamed fixture calls both through an alias and a dot import. The
+	// local-name fixture calls Now on a variable named time, which is not
+	// the time package, so it is not a finding.
 	want := []string{
 		"internal/illegal_forbidden_call.go.txt:10",
 		"internal/illegal_forbidden_call.go.txt:16",
+		"internal/illegal_forbidden_call_renamed.go.txt:10",
+		"internal/illegal_forbidden_call_renamed.go.txt:16",
 	}
 	assertFindings(t, fixturesRoot(t), matchers, want)
+}
+
+// TestPackageNameOfPath proves the package name that a forbidden entry uses.
+func TestPackageNameOfPath(t *testing.T) {
+	for path, want := range map[string]string{
+		"context":                         "context",
+		"github.com/jackc/pgx/v5/pgxpool": "pgxpool",
+		"github.com/jackc/pgx/v5":         "pgx",
+		"gopkg.in/yaml.v3":                "yaml",
+		"example.com/vendor/v2tools":      "v2tools",
+	} {
+		if got := packageNameOfPath(path); got != want {
+			t.Errorf("packageNameOfPath(%q) = %q, want %q", path, got, want)
+		}
+	}
+}
+
+// TestWalk_RefusesAMissingScopeDir proves that a scope directory that does
+// not exist is an error, not an empty and green walk.
+func TestWalk_RefusesAMissingScopeDir(t *testing.T) {
+	opts := newWalkOpts()
+	opts.Matchers = []Matcher{NewNilGuard(false)}
+	opts.ScopeDirs = []string{fixturesRoot(t), filepath.Join(fixturesRoot(t), "no-such-dir")}
+	if _, err := Walk(opts); err == nil {
+		t.Fatal("Walk over a missing scope directory returned no error")
+	}
+	opts.ScopeDirs = []string{filepath.Join(fixturesRoot(t), "internal", "illegal_nilguard.go.txt")}
+	if _, err := Walk(opts); err == nil {
+		t.Fatal("Walk over a file as a scope directory returned no error")
+	}
+	opts.ScopeDirs = nil
+	if _, err := Walk(opts); err == nil {
+		t.Fatal("Walk with no scope directory returned no error")
+	}
 }
 
 // TestImportBoundary catches forbidden imports.

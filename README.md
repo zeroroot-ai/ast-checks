@@ -2,7 +2,7 @@
 
 Shared Go AST harness for codebase-specific structural invariants. Walker primitives (NilGuard, ForbiddenCallsite, ImportBoundary), an allowlist with tagged categories that reports its stale entries, and two analyzers (unwired, crdfields).
 
-Internal Go module under the zeroroot-ai workspace. See [`zeroroot-ai/.github` → `AGENTS.md`](https://github.com/zeroroot-ai/.github/blob/main/AGENTS.md) for workflow conventions (branching, PRs, releases, agent merge autonomy).
+A Go module under the Apache-2.0 license. See [`zeroroot-ai/.github` → `AGENTS.md`](https://github.com/zeroroot-ai/.github/blob/main/AGENTS.md) for workflow conventions (branching, PRs, releases, agent merge autonomy).
 
 ## Allowlist keys
 
@@ -11,9 +11,9 @@ file path and the rendered guard joined by ` :: `:
 
 ```go
 allowlist := astchecks.Allowlist{
-	"internal/daemon/api/server_audit.go :: if s.authorizer == nil { ... }": {
+	"internal/service/handler.go :: if s.store == nil { ... }": {
 		Category: astchecks.CategoryLegacyOptional,
-		Reason:   "s.authorizer nil-check predates noopAuthorizer deletion",
+		Reason:   "the store is optional until the migration ends",
 	},
 }
 ```

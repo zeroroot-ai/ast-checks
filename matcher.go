@@ -31,6 +31,16 @@ type Matcher interface {
 	Match(fset *token.FileSet, node ast.Node, src []byte) (bool, string)
 }
 
+// FileMatcher is a Matcher that needs the file of the node, for example to
+// resolve an import alias. Walk calls MatchInFile in place of Match for a
+// FileMatcher.
+type FileMatcher interface {
+	Matcher
+
+	// MatchInFile is Match with the parsed file that holds node.
+	MatchInFile(fset *token.FileSet, file *ast.File, node ast.Node, src []byte) (bool, string)
+}
+
 // --- NilGuard primitive ------------------------------------------------------
 
 // NilGuard matches the shape `if X == nil { return nil-y }` — the
@@ -120,9 +130,14 @@ func (m *NilGuard) matchSubject(subject ast.Expr) bool {
 
 // ForbiddenCallsite matches a call to any symbol in the configured set.
 // Used to enforce "no context.Background() in request paths", "no time.Now()
-// in production code", "no db.Pool direct access" etc. The forbidden set
-// is matched on the rightmost selector (`context.Background`, `time.Now`)
-// — package-qualifier-aware.
+// in production code", "no db.Pool direct access" etc.
+//
+// Each entry is "<package name>.<symbol>", for example `context.Background`
+// or `pgxpool.New`. The package name is the last element of the import path,
+// with a major version element such as `v5` skipped. The matcher reads the
+// imports of the file: `import ctx "context"` and then `ctx.Background()` is a
+// match, a dot import of "time" and then `Now()` is a match, and a local
+// variable named `time` with a `Now` method is not a match.
 type ForbiddenCallsite struct {
 	// Forbidden is the set of fully-qualified symbols to flag.
 	// e.g. {"context.Background", "time.Now"}.
@@ -144,24 +159,106 @@ func NewForbiddenCallsite(rule string, forbidden ...string) *ForbiddenCallsite {
 func (m *ForbiddenCallsite) Name() string { return "ForbiddenCallsite" }
 func (m *ForbiddenCallsite) Rule() string { return m.RuleDesc }
 
-func (m *ForbiddenCallsite) Match(fset *token.FileSet, node ast.Node, src []byte) (bool, string) {
+// Match reports no match. ForbiddenCallsite needs the imports of the file to
+// tell a package from a local name, so Walk calls MatchInFile instead.
+func (m *ForbiddenCallsite) Match(_ *token.FileSet, _ ast.Node, _ []byte) (bool, string) {
+	return false, ""
+}
+
+// MatchInFile resolves the qualifier of a call against the imports of file
+// and matches the call when "<package name>.<symbol>" is in the forbidden set.
+func (m *ForbiddenCallsite) MatchInFile(fset *token.FileSet, file *ast.File, node ast.Node, src []byte) (bool, string) {
 	call, ok := node.(*ast.CallExpr)
 	if !ok {
 		return false, ""
 	}
-	sel, ok := call.Fun.(*ast.SelectorExpr)
-	if !ok {
+	var qualified string
+	switch fun := call.Fun.(type) {
+	case *ast.SelectorExpr:
+		qual, ok := fun.X.(*ast.Ident)
+		if !ok {
+			return false, ""
+		}
+		pkg, imported := importedPackageName(file, qual.Name)
+		if !imported {
+			return false, ""
+		}
+		qualified = pkg + "." + fun.Sel.Name
+	case *ast.Ident:
+		for _, pkg := range dotImportedPackageNames(file) {
+			if _, found := m.Forbidden[pkg+"."+fun.Name]; found {
+				return true, renderCall(call, fset, src)
+			}
+		}
+		return false, ""
+	default:
 		return false, ""
 	}
-	pkgIdent, ok := sel.X.(*ast.Ident)
-	if !ok {
-		return false, ""
-	}
-	qualified := pkgIdent.Name + "." + sel.Sel.Name
 	if _, found := m.Forbidden[qualified]; !found {
 		return false, ""
 	}
 	return true, renderCall(call, fset, src)
+}
+
+// importedPackageName returns the package name of the import that the file
+// names local, and whether such an import exists. A name that no import
+// declares is a local variable, a parameter or a type, never a package.
+func importedPackageName(file *ast.File, local string) (string, bool) {
+	for _, imp := range file.Imports {
+		path := strings.Trim(imp.Path.Value, `"`)
+		name := packageNameOfPath(path)
+		if imp.Name != nil {
+			if imp.Name.Name == "_" || imp.Name.Name == "." {
+				continue
+			}
+			if imp.Name.Name == local {
+				return name, true
+			}
+			continue
+		}
+		if name == local {
+			return name, true
+		}
+	}
+	return "", false
+}
+
+// dotImportedPackageNames returns the package name of each dot import of file.
+func dotImportedPackageNames(file *ast.File) []string {
+	var names []string
+	for _, imp := range file.Imports {
+		if imp.Name != nil && imp.Name.Name == "." {
+			names = append(names, packageNameOfPath(strings.Trim(imp.Path.Value, `"`)))
+		}
+	}
+	return names
+}
+
+// packageNameOfPath is the package name that Go gives an import path in
+// nearly every module: the last path element, with a major version element
+// such as "v5" skipped and a ".vN" suffix such as "yaml.v3" removed.
+func packageNameOfPath(path string) string {
+	elems := strings.Split(path, "/")
+	name := elems[len(elems)-1]
+	if len(elems) > 1 && isMajorVersion(name) {
+		name = elems[len(elems)-2]
+	}
+	if i := strings.Index(name, ".v"); i > 0 && isMajorVersion(name[i+1:]) {
+		name = name[:i]
+	}
+	return name
+}
+
+func isMajorVersion(s string) bool {
+	if len(s) < 2 || s[0] != 'v' {
+		return false
+	}
+	for _, r := range s[1:] {
+		if r < '0' || r > '9' {
+			return false
+		}
+	}
+	return true
 }
 
 // --- ImportBoundary primitive ------------------------------------------------
