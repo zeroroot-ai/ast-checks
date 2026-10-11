@@ -27,6 +27,8 @@ analyzeFile
 AssertNoStaleAllowlist
 # Reached only from analyzeFile, which Walk calls.
 CoordFromPos
+# Reached only from importedPackageName.
+declaredInFile
 # Reached only from ForbiddenCallsite.MatchInFile.
 dotImportedPackageNames
 # Reached only from Walk, which matches the allowlist by this key.

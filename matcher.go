@@ -33,7 +33,8 @@ type Matcher interface {
 
 // FileMatcher is a Matcher that needs the file of the node, for example to
 // resolve an import alias. Walk calls MatchInFile in place of Match for a
-// FileMatcher.
+// FileMatcher. The Match method of a FileMatcher may report no match for each
+// node, so a caller that walks a file itself must call MatchInFile.
 type FileMatcher interface {
 	Matcher
 
@@ -133,11 +134,15 @@ func (m *NilGuard) matchSubject(subject ast.Expr) bool {
 // in production code", "no db.Pool direct access" etc.
 //
 // Each entry is "<package name>.<symbol>", for example `context.Background`
-// or `pgxpool.New`. The package name is the last element of the import path,
-// with a major version element such as `v5` skipped. The matcher reads the
-// imports of the file: `import ctx "context"` and then `ctx.Background()` is a
-// match, a dot import of "time" and then `Now()` is a match, and a local
-// variable named `time` with a `Now` method is not a match.
+// or `pgxpool.New`. The matcher reads the imports of the file:
+// `import ctx "context"` and then `ctx.Background()` is a match, a dot import
+// of "time" and then `Now()` is a match, and a local variable named `time`
+// with a `Now` method is not a match.
+//
+// Limit: for an aliased or dot import, the package name comes from the path:
+// its last element, with a major version element such as `v5` skipped. An
+// aliased import of a package whose name the path does not show (for example
+// github.com/openfga/go-sdk, package openfga) is not matched.
 type ForbiddenCallsite struct {
 	// Forbidden is the set of fully-qualified symbols to flag.
 	// e.g. {"context.Background", "time.Now"}.
@@ -159,8 +164,9 @@ func NewForbiddenCallsite(rule string, forbidden ...string) *ForbiddenCallsite {
 func (m *ForbiddenCallsite) Name() string { return "ForbiddenCallsite" }
 func (m *ForbiddenCallsite) Rule() string { return m.RuleDesc }
 
-// Match reports no match. ForbiddenCallsite needs the imports of the file to
-// tell a package from a local name, so Walk calls MatchInFile instead.
+// Match always reports no match. ForbiddenCallsite needs the imports of the
+// file to tell a package from a local name, so it is a FileMatcher, and Walk
+// calls MatchInFile for it. Call MatchInFile, or use Walk; never call Match.
 func (m *ForbiddenCallsite) Match(_ *token.FileSet, _ ast.Node, _ []byte) (bool, string) {
 	return false, ""
 }
@@ -200,27 +206,92 @@ func (m *ForbiddenCallsite) MatchInFile(fset *token.FileSet, file *ast.File, nod
 	return true, renderCall(call, fset, src)
 }
 
-// importedPackageName returns the package name of the import that the file
-// names local, and whether such an import exists. A name that no import
-// declares is a local variable, a parameter or a type, never a package.
+// importedPackageName returns the package name that the qualifier local
+// stands for in file, and whether local names a package at all.
+//
+//  1. An import with the alias local names the package of its path.
+//  2. An import with no alias whose path shows the name local names it.
+//  3. A name that the file declares (a variable, a parameter, a type, a
+//     function) is not a package.
+//  4. Otherwise, when the file has an import with no alias, local is that
+//     package under its real name, which the path does not always show
+//     (github.com/stripe/stripe-go/v76 is package stripe).
 func importedPackageName(file *ast.File, local string) (string, bool) {
+	unaliased := false
 	for _, imp := range file.Imports {
 		path := strings.Trim(imp.Path.Value, `"`)
-		name := packageNameOfPath(path)
 		if imp.Name != nil {
-			if imp.Name.Name == "_" || imp.Name.Name == "." {
-				continue
-			}
 			if imp.Name.Name == local {
-				return name, true
+				return packageNameOfPath(path), true
 			}
 			continue
 		}
-		if name == local {
-			return name, true
+		unaliased = true
+		if packageNameOfPath(path) == local {
+			return local, true
 		}
 	}
-	return "", false
+	if !unaliased || declaredInFile(file, local) {
+		return "", false
+	}
+	return local, true
+}
+
+// declaredInFile reports whether file declares the name anywhere: a variable,
+// a constant, a parameter, a result, a receiver, a type or a function.
+func declaredInFile(file *ast.File, name string) bool {
+	found := false
+	names := func(fl *ast.FieldList) {
+		if fl == nil {
+			return
+		}
+		for _, f := range fl.List {
+			for _, n := range f.Names {
+				if n.Name == name {
+					found = true
+				}
+			}
+		}
+	}
+	ast.Inspect(file, func(n ast.Node) bool {
+		if found {
+			return false
+		}
+		switch d := n.(type) {
+		case *ast.AssignStmt:
+			if d.Tok == token.DEFINE {
+				for _, l := range d.Lhs {
+					if id, ok := l.(*ast.Ident); ok && id.Name == name {
+						found = true
+					}
+				}
+			}
+		case *ast.RangeStmt:
+			if d.Tok == token.DEFINE {
+				for _, e := range []ast.Expr{d.Key, d.Value} {
+					if id, ok := e.(*ast.Ident); ok && id.Name == name {
+						found = true
+					}
+				}
+			}
+		case *ast.ValueSpec:
+			for _, id := range d.Names {
+				if id.Name == name {
+					found = true
+				}
+			}
+		case *ast.TypeSpec:
+			found = found || d.Name.Name == name
+		case *ast.FuncDecl:
+			found = found || d.Name.Name == name
+			names(d.Recv)
+		case *ast.FuncType:
+			names(d.Params)
+			names(d.Results)
+		}
+		return !found
+	})
+	return found
 }
 
 // dotImportedPackageNames returns the package name of each dot import of file.

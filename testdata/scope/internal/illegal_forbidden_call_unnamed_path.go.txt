@@ -1,0 +1,10 @@
+package internal
+
+import (
+	"github.com/stripe/stripe-go/v76"
+)
+
+// illegal: stripe.New where the import path does not show the package name.
+func client() {
+	_ = stripe.New()
+}

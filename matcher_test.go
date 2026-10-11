@@ -98,6 +98,14 @@ func TestWalk_RefusesAMissingScopeDir(t *testing.T) {
 	}
 }
 
+// TestForbiddenCallsite_PackageNameNotInPath proves that an import with no
+// alias is matched by its real package name, which its path does not show.
+func TestForbiddenCallsite_PackageNameNotInPath(t *testing.T) {
+	matchers := []Matcher{NewForbiddenCallsite("no direct vendor client", "stripe.New")}
+	want := []string{"internal/illegal_forbidden_call_unnamed_path.go.txt:9"}
+	assertFindings(t, fixturesRoot(t), matchers, want)
+}
+
 // TestImportBoundary catches forbidden imports.
 func TestImportBoundary(t *testing.T) {
 	matchers := []Matcher{
