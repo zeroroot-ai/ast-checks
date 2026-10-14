@@ -49,11 +49,13 @@ check: fmt vet test-race lint-deadcode
 
 # This repo eats its own output. ast-checks#11 is its tracker, and the baseline
 # below is what `unwired` measures here.
+# The consumers are loaded, because ast-checks is test support: its API is
+# read by the gate tests of gibson, setec, sdk and adk.
 lint-unwired:
-	go run ./cmd/unwired -dir . -baseline .unwired-baseline.txt
+	go run ./cmd/unwired -dir . -consumers "$$(bash scripts/unwired-consumers.sh)" -baseline .unwired-baseline.txt
 
 lint-unwired-write:
-	go run ./cmd/unwired -dir . -baseline .unwired-baseline.txt -write
+	go run ./cmd/unwired -dir . -consumers "$$(bash scripts/unwired-consumers.sh)" -baseline .unwired-baseline.txt -write
 
 # Print the pin for CI. The workflow passes it to zeroroot-ai/.github's
 # actions/deadcode-gate, so the Makefile stays the only place the version lives.
