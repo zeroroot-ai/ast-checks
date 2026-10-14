@@ -27,9 +27,14 @@ analyzeFile
 AssertNoStaleAllowlist
 # Reached only from analyzeFile, which Walk calls.
 CoordFromPos
-# Reached only from importedPackageName.
+# Reached only from importedPackageName. The chain ends at
+# ForbiddenCallsite.MatchInFile, which Walk calls through the FileMatcher
+# interface: the consumer deadcode cannot see. Walk's callers are the gate
+# tests of gibson, sdk and adk.
 declaredInFile
-# Reached only from ForbiddenCallsite.MatchInFile.
+# Reached only from ForbiddenCallsite.MatchInFile, which Walk calls through
+# the FileMatcher interface: the consumer deadcode cannot see. Walk's callers
+# are the gate tests of gibson, sdk and adk.
 dotImportedPackageNames
 # Reached only from Walk, which matches the allowlist by this key.
 Finding.ContentKey
@@ -41,8 +46,9 @@ Finding.String
 # tenant_client_only_test.go and adk
 # gibson/cmd/gibson/no_os_exit_in_handler_test.go).
 ForbiddenCallsite.Match
-# FileMatcher method. Walk calls it through FileMatcher, and Walk is published
-# API (the consumers of ForbiddenCallsite above).
+# FileMatcher method. Walk calls it through the FileMatcher interface: the
+# consumer deadcode cannot see. Walk's callers are the gate tests of gibson,
+# sdk and adk (the consumers of ForbiddenCallsite above).
 ForbiddenCallsite.MatchInFile
 # Matcher method. Walk calls it through Matcher, and Walk is published API
 # (gibson cmd/gibson/no_context_background_test.go, no_time_now_test.go,
@@ -70,9 +76,14 @@ ImportBoundary.Name
 # (gibson cmd/ext-authz/check_no_gibson_test.go and sdk
 # check_no_gibson_test.go).
 ImportBoundary.Rule
-# Reached only from ForbiddenCallsite.MatchInFile.
+# Reached only from ForbiddenCallsite.MatchInFile, which Walk calls through
+# the FileMatcher interface: the consumer deadcode cannot see. Walk's callers
+# are the gate tests of gibson, sdk and adk.
 importedPackageName
-# Reached only from packageNameOfPath.
+# Reached only from packageNameOfPath. The chain ends at
+# ForbiddenCallsite.MatchInFile, which Walk calls through the FileMatcher
+# interface: the consumer deadcode cannot see. Walk's callers are the gate
+# tests of gibson, sdk and adk.
 isMajorVersion
 # Reached only from NilGuard.matchCondition.
 isNilIdent
@@ -112,7 +123,10 @@ NilGuard.Name
 # Matcher method. Walk calls it through Matcher, and Walk is published API
 # (gibson cmd/gibson/no_graceful_nil_test.go).
 NilGuard.Rule
-# Reached only from importedPackageName and dotImportedPackageNames.
+# Reached only from importedPackageName and dotImportedPackageNames. The chain ends at
+# ForbiddenCallsite.MatchInFile, which Walk calls through the FileMatcher
+# interface: the consumer deadcode cannot see. Walk's callers are the gate
+# tests of gibson, sdk and adk.
 packageNameOfPath
 # Reached only from Walk, which is published API.
 relativizeCoord
