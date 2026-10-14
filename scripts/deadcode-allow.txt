@@ -5,8 +5,9 @@
 # This module is a published library with one binary. cmd/unwired imports only
 # the unwired package, so deadcode cannot reach the root package from a main and
 # reports all of it. Each entry below names the consumer that keeps it, or the
-# release that deletes it. The consumers are the gate tests in gibson, sdk,
-# setec and adk, measured with a code search on 2026-10-02.
+# release that deletes it. The consumers are the gate tests in gibson, setec
+# and adk, measured with git grep at origin/main on 2026-10-14. sdk imports no
+# package of this module: it runs only cmd/unwired as a go tool.
 #
 # Keys are the bare symbol deadcode prints after "unreachable func: ", never a
 # file or a line, so an unrelated edit never needs a re-pin. Generate an entry
@@ -29,12 +30,13 @@ AssertNoStaleAllowlist
 CoordFromPos
 # Reached only from importedPackageName. The chain ends at
 # ForbiddenCallsite.MatchInFile, which Walk calls through the FileMatcher
-# interface: the consumer deadcode cannot see. Walk's callers are the gate
-# tests of gibson, sdk and adk.
+# interface: the consumer deadcode cannot see. The gibson and adk gate tests
+# pass a ForbiddenCallsite to Walk or WalkReport (see ForbiddenCallsite.Match).
 declaredInFile
-# Reached only from ForbiddenCallsite.MatchInFile, which Walk calls through
-# the FileMatcher interface: the consumer deadcode cannot see. Walk's callers
-# are the gate tests of gibson, sdk and adk.
+# Reached only from
+# ForbiddenCallsite.MatchInFile, which Walk calls through the FileMatcher
+# interface: the consumer deadcode cannot see. The gibson and adk gate tests
+# pass a ForbiddenCallsite to Walk or WalkReport (see ForbiddenCallsite.Match).
 dotImportedPackageNames
 # Reached only from Walk, which matches the allowlist by this key.
 Finding.ContentKey
@@ -47,8 +49,8 @@ Finding.String
 # gibson/cmd/gibson/no_os_exit_in_handler_test.go).
 ForbiddenCallsite.Match
 # FileMatcher method. Walk calls it through the FileMatcher interface: the
-# consumer deadcode cannot see. Walk's callers are the gate tests of gibson,
-# sdk and adk (the consumers of ForbiddenCallsite above).
+# consumer deadcode cannot see. The consumers of ForbiddenCallsite above pass
+# it to Walk or WalkReport.
 ForbiddenCallsite.MatchInFile
 # Matcher method. Walk calls it through Matcher, and Walk is published API
 # (gibson cmd/gibson/no_context_background_test.go, no_time_now_test.go,
@@ -65,25 +67,23 @@ ForbiddenCallsite.Rule
 # no_time_now_test.go and adk gibson/cmd/gibson/no_os_exit_in_handler_test.go.
 FormatAllowlistLog
 # Matcher method. Walk calls it through Matcher, and Walk is published API
-# (gibson cmd/ext-authz/check_no_gibson_test.go and sdk
-# check_no_gibson_test.go).
+# (gibson cmd/ext-authz/check_no_gibson_test.go).
 ImportBoundary.Match
 # Matcher method. Walk calls it through Matcher, and Walk is published API
-# (gibson cmd/ext-authz/check_no_gibson_test.go and sdk
-# check_no_gibson_test.go).
+# (gibson cmd/ext-authz/check_no_gibson_test.go).
 ImportBoundary.Name
 # Matcher method. Walk calls it through Matcher, and Walk is published API
-# (gibson cmd/ext-authz/check_no_gibson_test.go and sdk
-# check_no_gibson_test.go).
+# (gibson cmd/ext-authz/check_no_gibson_test.go).
 ImportBoundary.Rule
-# Reached only from ForbiddenCallsite.MatchInFile, which Walk calls through
-# the FileMatcher interface: the consumer deadcode cannot see. Walk's callers
-# are the gate tests of gibson, sdk and adk.
+# Reached only from
+# ForbiddenCallsite.MatchInFile, which Walk calls through the FileMatcher
+# interface: the consumer deadcode cannot see. The gibson and adk gate tests
+# pass a ForbiddenCallsite to Walk or WalkReport (see ForbiddenCallsite.Match).
 importedPackageName
 # Reached only from packageNameOfPath. The chain ends at
 # ForbiddenCallsite.MatchInFile, which Walk calls through the FileMatcher
-# interface: the consumer deadcode cannot see. Walk's callers are the gate
-# tests of gibson, sdk and adk.
+# interface: the consumer deadcode cannot see. The gibson and adk gate tests
+# pass a ForbiddenCallsite to Walk or WalkReport (see ForbiddenCallsite.Match).
 isMajorVersion
 # Reached only from NilGuard.matchCondition.
 isNilIdent
@@ -104,8 +104,8 @@ looksLikeError
 # tenant_client_only_test.go and adk
 # gibson/cmd/gibson/no_os_exit_in_handler_test.go.
 NewForbiddenCallsite
-# Published API. Consumer outside this module: gibson cmd/ext-
-# authz/check_no_gibson_test.go and sdk check_no_gibson_test.go.
+# Published API. Consumer outside this module: gibson
+# cmd/ext-authz/check_no_gibson_test.go.
 NewImportBoundary
 # Published API. Consumer outside this module: gibson
 # cmd/gibson/no_graceful_nil_test.go.
@@ -123,23 +123,24 @@ NilGuard.Name
 # Matcher method. Walk calls it through Matcher, and Walk is published API
 # (gibson cmd/gibson/no_graceful_nil_test.go).
 NilGuard.Rule
-# Reached only from importedPackageName and dotImportedPackageNames. The chain ends at
+# Reached only from importedPackageName and dotImportedPackageNames. The
+# chain ends at
 # ForbiddenCallsite.MatchInFile, which Walk calls through the FileMatcher
-# interface: the consumer deadcode cannot see. Walk's callers are the gate
-# tests of gibson, sdk and adk.
+# interface: the consumer deadcode cannot see. The gibson and adk gate tests
+# pass a ForbiddenCallsite to Walk or WalkReport (see ForbiddenCallsite.Match).
 packageNameOfPath
 # Reached only from Walk, which is published API.
 relativizeCoord
 # Reached only from ForbiddenCallsite.MatchInFile.
 renderCall
 # Published API. Consumer outside this module: setec
-# internal/no_panic_in_internal_test.go, and the gibson, sdk and adk gate tests
-# put it in their t.Errorf message.
+# internal/no_panic_in_internal_test.go, and the gibson and adk gate tests put
+# it in their t.Errorf message.
 RenderFindings
 # Reached only from NilGuard.Match.
 renderIfHead
-# Published API. Consumer outside this module: every consumer: gibson, sdk,
-# setec and adk gate tests.
+# Published API. Consumer outside this module: the gibson and setec gate
+# tests call it. The gibson and adk gate tests also reach it through WalkReport.
 Walk
 # Reached only from Walk, which is published API.
 WalkOpts.shouldParse
