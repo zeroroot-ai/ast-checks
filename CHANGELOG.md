@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.10.0](https://github.com/zeroroot-ai/ast-checks/compare/v0.9.0...v0.10.0) (2026-10-14)
+
+
+### ⚠ BREAKING CHANGES
+
+* Walk returns an error for a scope directory that does not exist. A consumer that listed one must fix the path.
+
+### Features
+
+* **unwired:** a consumer test reads a test-support package, and ast-checks measures with its consumers ([#51](https://github.com/zeroroot-ai/ast-checks/issues/51)) ([ac6b861](https://github.com/zeroroot-ai/ast-checks/commit/ac6b8616755f1a540a430bccd5159ece4559a85a))
+
+
+### Bug Fixes
+
+* Walk refuses a missing scope directory, and ForbiddenCallsite reads the imports ([#46](https://github.com/zeroroot-ai/ast-checks/issues/46)) ([2bcde9b](https://github.com/zeroroot-ai/ast-checks/commit/2bcde9b44f68ef1603d4a963fa7554e979f9f763))
+
 ## [0.9.0](https://github.com/zeroroot-ai/ast-checks/compare/v0.8.2...v0.9.0) (2026-10-09)
 
 
