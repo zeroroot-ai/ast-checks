@@ -82,6 +82,14 @@ func field(name string, reads, writes int) unwired.Decl {
 	}
 }
 
+// tagged is field with the reflection credit the analyzer gives a field
+// that has a json tag: goReads are the reads in Go code.
+func tagged(name string, goReads, writes int) unwired.Decl {
+	d := field(name, goReads+1, writes)
+	d.ReadsViaReflection = 1
+	return d
+}
+
 func judge(t *testing.T, cfg Config, decls ...unwired.Decl) (Outcome, string) {
 	t.Helper()
 	out, err := Judge(cfg, decls)
@@ -109,6 +117,13 @@ func TestJudge(t *testing.T) {
 			want:  "reads=0 writes=9"},
 		{name: "a field with a Go read passes",
 			decls: []unwired.Decl{field("WidgetSpec.Ignored", 3, 0)}},
+		// The analyzer credits a json tag as a read by reflection. Every
+		// served field has a json tag, so that credit alone is not a consumer.
+		{name: "a field read only by its json tag is blocked",
+			decls: []unwired.Decl{tagged("WidgetSpec.Ignored", 0, 2)},
+			want:  "v1alpha1.WidgetSpec.Ignored"},
+		{name: "a field with a Go read and a json tag passes",
+			decls: []unwired.Decl{tagged("WidgetSpec.Ignored", 1, 0)}},
 		// The field exists to be displayed and no Go code will ever read it.
 		{name: "an unread field named by a print column passes",
 			decls: []unwired.Decl{field("WidgetStatus.Shown", 0, 4)}},
@@ -267,5 +282,51 @@ func TestJudge_AnAbsoluteCoordinateReachesTheSchema(t *testing.T) {
 	out, report := judge(t, cfg, d)
 	if out.OK() || out.Served != 1 {
 		t.Fatalf("served %d field(s), want 1 blocked:\n%s", out.Served, report)
+	}
+}
+
+// TestAnalyzeThenJudge_AnUnreadServedFieldIsBlocked runs the whole path of
+// cmd/crdfields: the analyzer on a real module, then the judge. TestJudge
+// supplies the analyzer counts by hand, so it could not see that the
+// analyzer credits every json-tagged field as read, and that the gate then
+// blocked nothing at all.
+func TestAnalyzeThenJudge_AnUnreadServedFieldIsBlocked(t *testing.T) {
+	dir := t.TempDir()
+	mustWrite(t, filepath.Join(dir, "go.mod"), "module example.com/fixture\n\ngo 1.24\n")
+	mustWrite(t, filepath.Join(dir, "api", "v1alpha1", "widget_types.go"), "package v1alpha1\n"+`
+// +kubebuilder:object:root=true
+
+// Widget is the fixture root object.
+type Widget struct {
+	Spec WidgetSpec `+"`json:\"spec,omitempty\"`"+`
+}
+
+// WidgetSpec holds one field with a consumer and one with none.
+type WidgetSpec struct {
+	Size    string `+"`json:\"size,omitempty\"`"+`
+	Ignored string `+"`json:\"ignored,omitempty\"`"+`
+}
+`)
+	mustWrite(t, filepath.Join(dir, "api", "v1alpha1", "consumer.go"),
+		"package v1alpha1\n\n// SizeOf reads Size and Spec.\nfunc SizeOf(w Widget) string { return w.Spec.Size }\n")
+	mustWrite(t, filepath.Join(dir, "exempt.txt"), "")
+
+	res, err := unwired.Analyze(unwired.Opts{Dir: dir, Kinds: []unwired.Kind{unwired.KindField}})
+	if err != nil {
+		t.Fatalf("Analyze: %v", err)
+	}
+	out, err := Judge(Config{Dir: dir, TypesDirs: []string{"api/v1alpha1"}, ExemptFile: "exempt.txt", MinServed: 1}, res.Decls)
+	if err != nil {
+		t.Fatalf("Judge: %v", err)
+	}
+	if out.OK() {
+		t.Fatalf("the gate passed a served field that nothing reads:\n%s", out.Report())
+	}
+	report := out.Report()
+	if !strings.Contains(report, "v1alpha1.WidgetSpec.Ignored") {
+		t.Fatalf("the report does not name WidgetSpec.Ignored:\n%s", report)
+	}
+	if strings.Contains(report, "v1alpha1.WidgetSpec.Size") {
+		t.Fatalf("the report blocks WidgetSpec.Size, which SizeOf reads:\n%s", report)
 	}
 }
