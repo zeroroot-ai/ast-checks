@@ -47,7 +47,11 @@ func (a *analysis) countPackage(p *packages.Package) {
 		}
 		if isTest {
 			if a.isConsumer(p) {
-				// A test of a consumer is not a first-party use.
+				// A test of a consumer is not a first-party use of production
+				// code. It is the one use a test-support package has across
+				// modules (ast-checks itself is one), so it counts toward
+				// ReadsViaTests, which only a test-support package earns.
+				a.countTestReads(p, f)
 				continue
 			}
 			a.countTestReads(p, f)

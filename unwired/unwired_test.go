@@ -543,6 +543,25 @@ func TestAConsumerModuleCountsAsAReader(t *testing.T) {
 	}
 }
 
+// TestAConsumerTestReadsATestSupportPackage: a test-support package, such as
+// ast-checks itself, is used across modules by the tests of its consumers.
+// That test counts as its read. A consumer test of a production package
+// still does not (OnlyConsumerTestUses above).
+func TestAConsumerTestReadsATestSupportPackage(t *testing.T) {
+	consumer, err := filepath.Abs("testdata/consumer")
+	if err != nil {
+		t.Fatal(err)
+	}
+	alone := byName(analyze(t, nil))
+	if d := alone["support.OnlyConsumerTestHelper"]; !d.Unwired() {
+		t.Fatalf("without the consumer, OnlyConsumerTestHelper reads=%d, want 0", d.Reads)
+	}
+	got := byName(analyze(t, func(o *Opts) { o.Consumers = []string{consumer} }))
+	if d := got["support.OnlyConsumerTestHelper"]; d.Unwired() || d.ReadsViaTests == 0 {
+		t.Errorf("with the consumer, OnlyConsumerTestHelper reads=%d via tests=%d, want a test read", d.Reads, d.ReadsViaTests)
+	}
+}
+
 // TestTheGeneratedTestMainIsNoProductionImporter: go test generates a main
 // package "<pkg>.test" that imports the package under test. If its imports
 // counted, no package could be test support. support has a test of its own
