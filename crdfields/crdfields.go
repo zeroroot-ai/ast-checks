@@ -178,13 +178,18 @@ func Judge(cfg Config, decls []unwired.Decl) (Outcome, error) {
 			continue
 		}
 		served[d.Name] = true
-		if d.Reads > 0 || sch.displayed[pkgless] {
+		// The analyzer credits every field with a json tag as read by
+		// reflection. Every served field has one, because the tag is what
+		// serves it, so that credit says nothing about a consumer. Without
+		// this subtraction no CRD field could ever be blocked.
+		reads := d.Reads - d.ReadsViaReflection
+		if reads > 0 || sch.displayed[pkgless] {
 			continue
 		}
 		unread[d.Name] = Blocked{
 			Key:        d.Name,
 			Coord:      d.Coord,
-			Reads:      d.Reads,
+			Reads:      reads,
 			Writes:     d.Writes,
 			HasJSONTag: sch.fields[typ][field].json != "",
 		}
