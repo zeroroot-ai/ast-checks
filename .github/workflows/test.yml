@@ -20,7 +20,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+      - uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
         with:
           go-version-file: go.mod
           cache: true
@@ -53,7 +53,7 @@ jobs:
         id: deadcode
         run: echo "version=$(make -s deadcode-version)" >> "$GITHUB_OUTPUT"
       - name: lint-deadcode
-        uses: zeroroot-ai/.github/actions/deadcode-gate@a88e99f641209c147aad6cbd3b6d62c2764485ca # v0.21.3
+        uses: zeroroot-ai/.github/actions/deadcode-gate@78606607ff7c6192237bb05b4610af6bbe16e8ee # v0.22.0
         with:
           version: ${{ steps.deadcode.outputs.version }}
           allowlist: scripts/deadcode-allow.txt
@@ -66,7 +66,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+      - uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
         with:
           go-version-file: go.mod
           cache: true
